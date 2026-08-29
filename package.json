@@ -1,0 +1,26 @@
+{
+  "name": "discord-roblox-audio-bot",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Discord bot that converts owned or licensed audio to Roblox-compatible OGG files.",
+  "scripts": {
+    "start": "node src/index.js",
+    "register": "node src/register-commands.js",
+    "register:guilds": "node src/register-guild-commands.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "discord.js": "^14.22.1",
+    "dotenv": "^17.2.2",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
+    "stripe": "^22.6.0"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "allowScripts": {
+    "ffmpeg-static": true
+  }
+}
