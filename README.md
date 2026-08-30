@@ -2,7 +2,7 @@
 
 Bot Discord ini menukar audio yang anda miliki atau berlesen kepada satu fail OGG yang memenuhi spesifikasi teknikal Roblox: stereo, 48 kHz, kurang 7 minit dan kurang 20 MB. Ia mengekalkan mix asal (termasuk bass dan vokal), selain resampling dan peak limiter ringan untuk mengelakkan clipping.
 
-Versi 2 menambah queue sehingga 5 kerja menunggu, status kemajuan, preset kualiti Compact/Standard/High, normalisasi loudness pilihan, dan pengoptimuman automatik apabila output menghampiri had upload Discord.
+Versi 2 menambah queue sehingga 5 kerja menunggu, status kemajuan, preset kualiti Compact/Standard/High, normalisasi loudness pilihan, pengoptimuman automatik, dan upload terus ke Roblox Open Cloud untuk server/role yang dibenarkan.
 
 Bot ini **bukan** alat untuk memintas copyright detection atau moderation. Menukar format tidak memberikan hak untuk memuat naik lagu orang lain dan tidak menjamin Roblox akan menerima sesuatu aset.
 
@@ -26,7 +26,24 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 
 ## Penggunaan
 
-Dalam Discord, jalankan `/roblox-audio`, pilih lampiran audio, pilih kualiti jika perlu, dan biarkan `normalize` off untuk mengekalkan mix asal. Tunggu fail `*-roblox.ogg`, kemudian upload sendiri melalui Roblox Creator Dashboard atau Asset Manager.
+Dalam Discord:
+
+- `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
+- `/roblox-upload` menukar, upload melalui Open Cloud, menunggu keputusan pemprosesan, kemudian memberi Asset ID dan snippet Lua.
+
+Biarkan `normalize` off untuk mengekalkan mix asal. Setiap upload terus memerlukan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.
+
+### Konfigurasi Roblox Open Cloud
+
+Tetapkan secrets berikut pada host, bukan dalam GitHub atau mesej Discord:
+
+- `ROBLOX_API_KEY` — API key dengan permission `asset:write` untuk creator yang dipilih.
+- `ROBLOX_CREATOR_TYPE` — `Group` atau `User`.
+- `ROBLOX_CREATOR_ID` — ID group/user Roblox.
+- `ROBLOX_UPLOAD_GUILD_ID` — ID server Discord yang dibenarkan.
+- `ROBLOX_UPLOAD_ROLE_ID` — ID role Discord yang boleh menggunakan `/roblox-upload`.
+
+Untuk group, gunakan akaun automasi khusus yang mempunyai permission group minimum yang diperlukan. Hadkan API key kepada permission dan IP sekecil yang praktikal, putar key jika terdedah, dan jangan gunakan tetapan IP terbuka melainkan host anda memerlukannya.
 
 ## Batas
 

@@ -7,6 +7,7 @@ import { Client, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } 
 import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
 import { createBilling } from "./billing.js";
+import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
 import { startServer } from "./server.js";
 import { SubscriptionStore } from "./subscription-store.js";
 import {
@@ -32,6 +33,16 @@ const billing = createBilling({
   proPriceId: process.env.STRIPE_PRO_PRICE_ID,
   serverPriceId: process.env.STRIPE_SERVER_PRICE_ID
 }, store);
+const roblox = createRobloxUploader({
+  apiKey: process.env.ROBLOX_API_KEY,
+  creatorType: process.env.ROBLOX_CREATOR_TYPE,
+  creatorId: process.env.ROBLOX_CREATOR_ID
+});
+const robloxAccess = {
+  guildId: process.env.ROBLOX_UPLOAD_GUILD_ID,
+  roleId: process.env.ROBLOX_UPLOAD_ROLE_ID,
+  userIds: process.env.ROBLOX_UPLOAD_USER_IDS
+};
 const jobQueue = [];
 const MAX_PENDING_JOBS = 5;
 let processing = false;
@@ -44,7 +55,7 @@ client.on(Events.Error, (error) => {
   console.error("Discord client error:", error);
 });
 
-async function processAudioJob({ interaction, attachment, quality, normalize, userId, guildId }) {
+async function processAudioJob({ interaction, attachment, quality, normalize, userId, guildId, upload }) {
   let workDir;
 
   try {
@@ -64,7 +75,7 @@ async function processAudioJob({ interaction, attachment, quality, normalize, us
 
     let effectiveQuality = quality;
     let outputInfo = await stat(outputPath);
-    if (outputInfo.size > DISCORD_SAFE_MAX_BYTES && quality !== "compact") {
+    if (!upload && outputInfo.size > DISCORD_SAFE_MAX_BYTES && quality !== "compact") {
       await interaction.editReply("📦 Output terlalu besar untuk Discord; mengoptimumkan bitrate…");
       effectiveQuality = "compact";
       await convertAudio(ffmpegPath, inputPath, outputPath, { quality: effectiveQuality, normalize });
@@ -72,6 +83,29 @@ async function processAudioJob({ interaction, attachment, quality, normalize, us
     }
     if (outputInfo.size >= ROBLOX_MAX_BYTES) {
       throw new Error("Hasil masih melebihi had Roblox 20 MB.");
+    }
+
+    if (upload) {
+      await interaction.editReply("☁️ Menghantar audio ke Roblox Open Cloud…");
+      const operationPath = await roblox.upload({
+        filePath: outputPath,
+        fileName: outputName,
+        displayName: upload.name,
+        description: upload.description
+      });
+      await interaction.editReply("⏳ Roblox sedang memproses dan memoderasi aset…");
+      const assetId = await roblox.waitForAsset(operationPath);
+      await interaction.editReply({
+        content: [
+          `✅ Upload siap: **${upload.name}**`,
+          `Asset ID: **${assetId}**`,
+          `Lua: \`Sound.SoundId = "rbxassetid://${assetId}"\``,
+          `Pelan ${consumed.tier.toUpperCase()} · baki bulan ini: ${consumed.remaining}/${consumed.limit}.`,
+          "Gunakan aset hanya mengikut hak/lesen dan keputusan moderation Roblox."
+        ].join("\n"),
+        files: []
+      });
+      return;
     }
 
     await interaction.editReply("📤 Menghantar fail siap…");
@@ -143,7 +177,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
-  if (interaction.commandName !== "roblox-audio") return;
+  if (!["roblox-audio", "roblox-upload"].includes(interaction.commandName)) return;
+
+  const directUpload = interaction.commandName === "roblox-upload";
+  if (directUpload && !roblox.configured) {
+    await interaction.reply({
+      content: "❌ Roblox Open Cloud belum dikonfigurasi oleh pemilik bot.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+  if (directUpload && !canUseRobloxUpload(interaction, robloxAccess)) {
+    await interaction.reply({
+      content: "❌ Anda tiada role/akses untuk upload ke creator Roblox bot ini.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+  if (directUpload && !interaction.options.getBoolean("rights_confirm", true)) {
+    await interaction.reply({
+      content: "❌ Upload dibatalkan. Anda mesti memiliki atau mempunyai lesen audio tersebut.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
 
   const attachment = interaction.options.getAttachment("file", true);
   const quality = interaction.options.getString("quality") || "standard";
@@ -179,7 +236,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     interaction, attachment, quality, normalize,
     userId: interaction.user.id,
     guildId: interaction.guildId,
-    tier: quota.tier
+    tier: quota.tier,
+    upload: directUpload ? {
+      name: interaction.options.getString("name", true),
+      description: interaction.options.getString("description") || "Uploaded from Discord using licensed audio"
+    } : null
   };
   if (quota.tier === "free") jobQueue.push(job);
   else {
@@ -201,7 +262,8 @@ const httpServer = startServer({
     discordReady: client.isReady(),
     guilds: client.guilds.cache.size,
     queue: jobQueue.length,
-    billingConfigured: billing.configured
+    billingConfigured: billing.configured,
+    robloxUploadConfigured: roblox.configured
   })
 });
 

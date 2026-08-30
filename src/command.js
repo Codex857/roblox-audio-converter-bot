@@ -40,4 +40,30 @@ export const subscriptionCommand = new SlashCommandBuilder()
   .setName("subscription")
   .setDescription("Semak pelan, penggunaan dan baki quota bulan ini");
 
-export const allCommands = [robloxAudioCommand, subscribeCommand, subscriptionCommand];
+export const robloxUploadCommand = new SlashCommandBuilder()
+  .setName("roblox-upload")
+  .setDescription("Tukar dan upload audio berlesen terus ke Roblox")
+  .addAttachmentOption((option) =>
+    option.setName("file").setDescription("Audio MP3, OGG, WAV, FLAC, M4A, atau AAC").setRequired(true)
+  )
+  .addStringOption((option) =>
+    option.setName("name").setDescription("Nama aset yang jelas (maksimum 50 aksara)").setMaxLength(50).setRequired(true)
+  )
+  .addStringOption((option) =>
+    option.setName("description").setDescription("Penerangan aset dan sumber lesen").setMaxLength(1000)
+  )
+  .addStringOption((option) =>
+    option.setName("quality").setDescription("Kualiti output; standard disyorkan").addChoices(
+      { name: "Compact (128 kbps)", value: "compact" },
+      { name: "Standard (160 kbps)", value: "standard" },
+      { name: "High (192 kbps)", value: "high" }
+    )
+  )
+  .addBooleanOption((option) =>
+    option.setName("normalize").setDescription("Samakan loudness; off mengekalkan mix asal")
+  )
+  .addBooleanOption((option) =>
+    option.setName("rights_confirm").setDescription("Saya memiliki/hak lesen untuk upload audio ini").setRequired(true)
+  );
+
+export const allCommands = [robloxAudioCommand, robloxUploadCommand, subscribeCommand, subscriptionCommand];
