@@ -49,6 +49,9 @@ export const robloxUploadCommand = new SlashCommandBuilder()
   .addStringOption((option) =>
     option.setName("name").setDescription("Nama aset yang jelas (maksimum 50 aksara)").setMaxLength(50).setRequired(true)
   )
+  .addBooleanOption((option) =>
+    option.setName("rights_confirm").setDescription("Saya memiliki/hak lesen untuk upload audio ini").setRequired(true)
+  )
   .addStringOption((option) =>
     option.setName("description").setDescription("Penerangan aset dan sumber lesen").setMaxLength(1000)
   )
@@ -61,9 +64,6 @@ export const robloxUploadCommand = new SlashCommandBuilder()
   )
   .addBooleanOption((option) =>
     option.setName("normalize").setDescription("Samakan loudness; off mengekalkan mix asal")
-  )
-  .addBooleanOption((option) =>
-    option.setName("rights_confirm").setDescription("Saya memiliki/hak lesen untuk upload audio ini").setRequired(true)
   );
 
 export const allCommands = [robloxAudioCommand, robloxUploadCommand, subscribeCommand, subscriptionCommand];
