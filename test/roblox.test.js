@@ -41,3 +41,29 @@ test("Roblox API failures use useful messages", () => {
   assert.match(robloxApiError(413), /terlalu besar/);
   assert.match(robloxApiError(429, { error: { message: "quota reached" } }), /quota reached/);
 });
+
+test("asset polling retries a temporary Roblox failure", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) {
+      return new Response(JSON.stringify({ message: "temporarily unavailable" }), {
+        status: 503,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    return new Response(JSON.stringify({ done: true, response: { assetId: "789" } }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  };
+
+  try {
+    const uploader = createRobloxUploader({ apiKey: "secret", creatorType: "Group", creatorId: "123" });
+    assert.equal(await uploader.waitForAsset("operations/test", { attempts: 2, intervalMs: 0 }), "789");
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

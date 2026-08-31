@@ -50,4 +50,8 @@ export const robloxUploadCommand = new SlashCommandBuilder()
     option.setName("description").setDescription("Penerangan aset dan sumber lesen").setMaxLength(1000)
   );
 
-export const allCommands = [robloxAudioCommand, robloxUploadCommand];
+export const robloxHelpCommand = new SlashCommandBuilder()
+  .setName("roblox-help")
+  .setDescription("Tunjukkan cara paling mudah menggunakan bot audio Roblox");
+
+export const allCommands = [robloxAudioCommand, robloxUploadCommand, robloxHelpCommand];

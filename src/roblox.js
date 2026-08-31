@@ -52,6 +52,12 @@ export function assetIdFromOperation(operation) {
   return operation?.response?.assetId || operation?.response?.asset?.assetId || null;
 }
 
+function requestFailure(message, retryable = false) {
+  const error = new Error(message);
+  error.retryable = retryable;
+  return error;
+}
+
 export function createRobloxUploader(config = {}) {
   const apiKey = config.apiKey?.trim();
   const creatorType = config.creatorType?.trim();
@@ -67,13 +73,18 @@ export function createRobloxUploader(config = {}) {
         signal: AbortSignal.timeout(options.timeout || 120_000)
       });
     } catch (error) {
-      if (error?.name === "TimeoutError") throw new Error("Sambungan Roblox tamat masa. Cuba lagi.");
-      throw new Error("Tidak dapat menyambung ke Roblox Open Cloud.");
+      if (error?.name === "TimeoutError") {
+        throw requestFailure("Sambungan Roblox tamat masa. Cuba lagi.", true);
+      }
+      throw requestFailure("Tidak dapat menyambung ke Roblox Open Cloud.", true);
     }
     const text = await response.text();
     let body;
     try { body = text ? JSON.parse(text) : {}; } catch { body = { message: text.slice(0, 300) }; }
-    if (!response.ok) throw new Error(robloxApiError(response.status, body));
+    if (!response.ok) {
+      const retryable = response.status === 429 || response.status >= 500;
+      throw requestFailure(robloxApiError(response.status, body), retryable);
+    }
     return body;
   }
 
@@ -99,21 +110,25 @@ export function createRobloxUploader(config = {}) {
   async function waitForAsset(operationPath, { attempts = 60, intervalMs = 3000 } = {}) {
     const path = normalizeOperationPath(operationPath);
     for (let attempt = 0; attempt < attempts; attempt += 1) {
-      const operation = await request(path, { method: "GET", timeout: 30_000 });
-      if (operation.done) {
-        if (operation.error) {
-          const reason = typeof operation.error === "string"
-            ? operation.error
-            : operation.error.message || operation.error.code || "ditolak semasa moderation/pemprosesan";
-          throw new Error(`Roblox tidak menyiapkan aset: ${reason}`);
+      try {
+        const operation = await request(path, { method: "GET", timeout: 30_000 });
+        if (operation.done) {
+          if (operation.error) {
+            const reason = typeof operation.error === "string"
+              ? operation.error
+              : operation.error.message || operation.error.code || "ditolak semasa moderation/pemprosesan";
+            throw new Error(`Roblox tidak menyiapkan aset: ${reason}`);
+          }
+          const assetId = assetIdFromOperation(operation);
+          if (!assetId) throw new Error("Roblox menyiapkan operasi tanpa Asset ID.");
+          return String(assetId);
         }
-        const assetId = assetIdFromOperation(operation);
-        if (!assetId) throw new Error("Roblox menyiapkan operasi tanpa Asset ID.");
-        return String(assetId);
+      } catch (error) {
+        if (!error?.retryable) throw error;
       }
-      await sleep(intervalMs);
+      if (attempt < attempts - 1) await sleep(intervalMs);
     }
-    throw new Error("Roblox masih memproses aset. Semak Creator Dashboard sebentar lagi.");
+    throw new Error("Roblox masih memproses atau sambungan terganggu. Semak Creator Dashboard sebentar lagi.");
   }
 
   return { configured, creatorType, creatorId, upload, waitForAsset };

@@ -21,7 +21,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.1.1";
+const BOT_VERSION = "2.2.0";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
 
@@ -116,7 +116,7 @@ async function processConversionJob({ interaction, attachments, quality, normali
   }
 }
 
-async function uploadOne({ interaction, attachment, index, total, requestedName, description }) {
+async function startUploadOne({ interaction, attachment, index, total, requestedName, description }) {
   let workDir;
   const displayName = requestedName
     ? assetDisplayName(requestedName, { stripExtension: false })
@@ -143,9 +143,7 @@ async function uploadOne({ interaction, attachment, index, total, requestedName,
       displayName,
       description
     });
-    await editStatus(interaction, `⏳ [${index}/${total}] Roblox sedang memproses **${safeDiscordText(displayName)}**…`);
-    const assetId = await roblox.waitForAsset(operationPath);
-    return { name: displayName, assetId };
+    return { index, name: displayName, operationPath };
   } finally {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -153,12 +151,13 @@ async function uploadOne({ interaction, attachment, index, total, requestedName,
 
 async function processUploadJob({ interaction, attachments, upload }) {
   const results = [];
+  const started = [];
 
   for (let index = 0; index < attachments.length; index += 1) {
     const attachment = attachments[index];
     const requestedName = attachments.length === 1 ? upload.name : null;
     try {
-      results.push(await uploadOne({
+      started.push(await startUploadOne({
         interaction,
         attachment,
         index: index + 1,
@@ -168,6 +167,7 @@ async function processUploadJob({ interaction, attachments, upload }) {
       }));
     } catch (error) {
       results.push({
+        index: index + 1,
         name: requestedName
           ? assetDisplayName(requestedName, { stripExtension: false })
           : assetDisplayName(attachment.name),
@@ -175,6 +175,24 @@ async function processUploadJob({ interaction, attachments, upload }) {
       });
     }
   }
+
+  if (started.length) {
+    await editStatus(
+      interaction,
+      `⏳ Menunggu Roblox memproses ${started.length} audio secara serentak…`
+    );
+    const completed = await Promise.all(started.map(async (item) => {
+      try {
+        const assetId = await roblox.waitForAsset(item.operationPath);
+        return { index: item.index, name: item.name, assetId };
+      } catch (error) {
+        return { index: item.index, name: item.name, error: errorMessage(error) };
+      }
+    }));
+    results.push(...completed);
+  }
+
+  results.sort((left, right) => left.index - right.index);
 
   const successful = results.filter((result) => result.assetId);
   const failed = results.filter((result) => result.error);
@@ -232,7 +250,25 @@ async function drainQueue() {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  if (!["roblox-audio", "roblox-upload"].includes(interaction.commandName)) return;
+  if (!["roblox-audio", "roblox-upload", "roblox-help"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "roblox-help") {
+    await interaction.reply({
+      content: [
+        "🎵 **Cara guna bot audio Roblox**",
+        "1. Taip `/roblox-upload`.",
+        "2. Pilih `file` dan tambah `file_2` hingga `file_5` jika perlu.",
+        "3. Tetapkan `rights_confirm` kepada **True**.",
+        "4. Hantar dan tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "",
+        "Nama aset diambil daripada nama fail secara automatik. `name` dan `description` hanya pilihan.",
+        "Gunakan audio yang anda miliki atau mempunyai lesen. Semua upload tetap melalui moderation Roblox."
+      ].join("\n"),
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
 
   const directUpload = interaction.commandName === "roblox-upload";
   if (directUpload && !roblox.configured) {

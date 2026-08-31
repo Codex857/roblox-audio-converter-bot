@@ -19,3 +19,9 @@ test("direct upload accepts up to five attachments", () => {
     .map((option) => option.name);
   assert.deepEqual(attachmentNames, ["file", "file_2", "file_3", "file_4", "file_5"]);
 });
+
+test("help command is available without options", () => {
+  const help = allCommands.map((item) => item.toJSON()).find((command) => command.name === "roblox-help");
+  assert.ok(help);
+  assert.deepEqual(help.options || [], []);
+});
