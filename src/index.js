@@ -3,7 +3,15 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
-import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  Client,
+  Events,
+  GatewayIntentBits,
+  MessageFlags
+} from "discord.js";
 import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
 import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
@@ -21,7 +29,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.2.0";
+const BOT_VERSION = "2.3.0";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
 
@@ -37,7 +45,9 @@ const robloxAccess = {
   userIds: process.env.ROBLOX_UPLOAD_USER_IDS
 };
 const jobQueue = [];
+const quickUploadConfirmations = new Map();
 const MAX_PENDING_FILES = 10;
+const QUICK_CONFIRM_MS = 60_000;
 let activeFileCount = 0;
 let processing = false;
 
@@ -63,6 +73,19 @@ function safeDiscordText(value) {
 
 function editStatus(interaction, content) {
   return interaction.editReply({ content, allowedMentions: { parse: [] } });
+}
+
+function quickUploadComponents(requestId) {
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`quick-upload:${requestId}:confirm`)
+      .setLabel("Saya ada hak — Upload")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`quick-upload:${requestId}:cancel`)
+      .setLabel("Batal")
+      .setStyle(ButtonStyle.Secondary)
+  )];
 }
 
 async function processConversionJob({ interaction, attachments, quality, normalize }) {
@@ -248,18 +271,138 @@ async function drainQueue() {
   }
 }
 
-client.on(Events.InteractionCreate, async (interaction) => {
+async function enqueueJob(job) {
+  const pendingBefore = pendingFileCount();
+  if (pendingBefore + job.attachments.length > MAX_PENDING_FILES) {
+    await job.interaction.editReply({
+      content: `Queue hampir penuh. Maksimum ${MAX_PENDING_FILES} fail aktif/menunggu; cuba lagi sebentar.`,
+      components: [],
+      allowedMentions: { parse: [] }
+    });
+    return false;
+  }
+
+  jobQueue.push(job);
+  if (pendingBefore > 0) {
+    await editStatus(job.interaction, `⏳ Masuk queue. Ada ${pendingBefore} fail di hadapan.`);
+  }
+  void drainQueue();
+  return true;
+}
+
+async function showQuickUploadConfirmation(interaction) {
+  if (!roblox.configured) {
+    await interaction.reply({
+      content: "❌ Roblox Open Cloud belum dikonfigurasi oleh pemilik bot.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+  if (!canUseRobloxUpload(interaction, robloxAccess)) {
+    await interaction.reply({
+      content: "❌ Anda tiada akses untuk upload ke creator Roblox bot ini.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const attachment = interaction.options.getAttachment("file", true);
+  try {
+    validateAttachment(attachment);
+  } catch (error) {
+    await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const requestId = randomUUID().replaceAll("-", "");
+  quickUploadConfirmations.set(requestId, {
+    ownerId: interaction.user.id,
+    interaction,
+    attachment
+  });
+  try {
+    await interaction.reply({
+      content: [
+        `🎵 Fail: **${safeDiscordText(attachment.name)}**`,
+        "Bot akan menukar audio dan upload ke Roblox.",
+        "Tekan butang hijau untuk mengesahkan anda memiliki atau mempunyai lesen audio ini."
+      ].join("\n"),
+      components: quickUploadComponents(requestId),
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+  } catch (error) {
+    quickUploadConfirmations.delete(requestId);
+    throw error;
+  }
+
+  const timer = setTimeout(() => {
+    if (!quickUploadConfirmations.delete(requestId)) return;
+    void interaction.editReply({
+      content: "⌛ Pengesahan tamat masa. Jalankan `/upload` semula.",
+      components: [],
+      allowedMentions: { parse: [] }
+    }).catch(() => {});
+  }, QUICK_CONFIRM_MS);
+  timer.unref?.();
+}
+
+async function handleQuickUploadButton(interaction) {
+  const match = /^quick-upload:([a-f0-9]{32}):(confirm|cancel)$/.exec(interaction.customId);
+  if (!match) return false;
+
+  const [, requestId, action] = match;
+  const pending = quickUploadConfirmations.get(requestId);
+  if (!pending) {
+    await interaction.reply({ content: "⌛ Permintaan ini sudah tamat atau digunakan.", flags: MessageFlags.Ephemeral });
+    return true;
+  }
+  if (interaction.user.id !== pending.ownerId) {
+    await interaction.reply({ content: "❌ Butang ini bukan untuk anda.", flags: MessageFlags.Ephemeral });
+    return true;
+  }
+
+  quickUploadConfirmations.delete(requestId);
+  if (action === "cancel") {
+    await interaction.update({ content: "Upload dibatalkan.", components: [], allowedMentions: { parse: [] } });
+    return true;
+  }
+
+  await interaction.update({ content: "⏳ Menyediakan upload…", components: [], allowedMentions: { parse: [] } });
+  await enqueueJob({
+    interaction: pending.interaction,
+    attachments: [pending.attachment],
+    quality: "high",
+    normalize: true,
+    upload: {
+      name: null,
+      description: "Uploaded from Discord using licensed audio"
+    }
+  });
+  return true;
+}
+
+async function handleInteraction(interaction) {
+  if (interaction.isButton()) {
+    await handleQuickUploadButton(interaction);
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
-  if (!["roblox-audio", "roblox-upload", "roblox-help"].includes(interaction.commandName)) return;
+  if (!["upload", "roblox-audio", "roblox-upload", "roblox-help"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "upload") {
+    await showQuickUploadConfirmation(interaction);
+    return;
+  }
 
   if (interaction.commandName === "roblox-help") {
     await interaction.reply({
       content: [
         "🎵 **Cara guna bot audio Roblox**",
-        "1. Taip `/roblox-upload`.",
-        "2. Pilih `file` dan tambah `file_2` hingga `file_5` jika perlu.",
-        "3. Tetapkan `rights_confirm` kepada **True**.",
-        "4. Hantar dan tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "**Paling mudah:** taip `/upload`, pilih lagu, kemudian tekan butang hijau.",
+        "",
+        "Untuk 2–5 lagu sekali, gunakan `/roblox-upload`, pilih fail dan tetapkan `rights_confirm` kepada **True**.",
+        "Tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
         "Nama aset diambil daripada nama fail secara automatik. `name` dan `description` hanya pilihan.",
         "Gunakan audio yang anda miliki atau mempunyai lesen. Semua upload tetap melalui moderation Roblox."
@@ -306,14 +449,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   await interaction.deferReply();
-  const pendingBefore = pendingFileCount();
-  if (pendingBefore + attachments.length > MAX_PENDING_FILES) {
-    await interaction.editReply({
-      content: `Queue hampir penuh. Maksimum ${MAX_PENDING_FILES} fail aktif/menunggu; cuba lagi sebentar.`,
-      allowedMentions: { parse: [] }
-    });
-    return;
-  }
   const job = {
     interaction,
     attachments,
@@ -324,11 +459,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
       description: interaction.options.getString("description") || "Uploaded from Discord using licensed audio"
     } : null
   };
-  jobQueue.push(job);
-  if (pendingBefore > 0) {
-    await editStatus(interaction, `⏳ Masuk queue. Ada ${pendingBefore} fail di hadapan.`);
-  }
-  void drainQueue();
+  await enqueueJob(job);
+}
+
+client.on(Events.InteractionCreate, (interaction) => {
+  void handleInteraction(interaction).catch(async (error) => {
+    console.error("Interaction error:", error);
+    if (!interaction.isRepliable()) return;
+    const payload = {
+      content: "❌ Bot mengalami ralat sementara. Cuba semula sebentar lagi.",
+      components: [],
+      allowedMentions: { parse: [] }
+    };
+    if (interaction.deferred || interaction.replied) await interaction.editReply(payload).catch(() => {});
+    else await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral }).catch(() => {});
+  });
 });
 
 client.login(token);

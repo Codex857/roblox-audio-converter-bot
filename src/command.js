@@ -54,4 +54,11 @@ export const robloxHelpCommand = new SlashCommandBuilder()
   .setName("roblox-help")
   .setDescription("Tunjukkan cara paling mudah menggunakan bot audio Roblox");
 
-export const allCommands = [robloxAudioCommand, robloxUploadCommand, robloxHelpCommand];
+export const quickUploadCommand = new SlashCommandBuilder()
+  .setName("upload")
+  .setDescription("Cara mudah: pilih satu lagu dan tekan butang upload")
+  .addAttachmentOption((option) =>
+    option.setName("file").setDescription("Pilih fail lagu anda").setRequired(true)
+  );
+
+export const allCommands = [quickUploadCommand, robloxUploadCommand, robloxAudioCommand, robloxHelpCommand];

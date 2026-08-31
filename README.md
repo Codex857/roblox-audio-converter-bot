@@ -2,7 +2,7 @@
 
 Bot Discord ini menukar audio yang anda miliki atau berlesen kepada satu fail OGG yang memenuhi spesifikasi teknikal Roblox: stereo, 48 kHz, kurang 7 minit dan kurang 20 MB. Ia mengekalkan mix asal (termasuk bass dan vokal), selain resampling dan peak limiter ringan untuk mengelakkan clipping.
 
-Versi 2.2 menambah upload pukal sehingga 5 lagu dalam satu command, bantuan terus melalui `/roblox-help`, queue maksimum 10 fail aktif/menunggu, status kemajuan setiap lagu, semakan semula fail OGG sebelum upload, retry gangguan sementara, pemprosesan status Roblox secara serentak, dan eksport Asset ID dalam JSON serta Lua.
+Versi 2.3 menambah mode mudah `/upload` dengan satu pilihan fail dan butang pengesahan, upload pukal sehingga 5 lagu, bantuan terus melalui `/roblox-help`, queue maksimum 10 fail aktif/menunggu, retry gangguan sementara, pemprosesan status Roblox secara serentak, dan eksport Asset ID dalam JSON serta Lua.
 
 Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload dikawal menggunakan server dan role Discord.
 
@@ -30,6 +30,7 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 
 Dalam Discord:
 
+- `/upload` ialah cara paling mudah: pilih satu fail, kemudian tekan butang hijau untuk mengesahkan hak audio dan memulakan upload.
 - `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
 - `/roblox-upload` menerima 1 hingga 5 fail dan pengesahan hak audio. Bot menggunakan OGG high quality 192 kbps dan loudness normalization −14 LUFS / −1.5 dB true peak seperti aplikasi GUI, upload satu demi satu melalui Open Cloud, kemudian memberi Asset ID serta fail `asset_ids.json` dan `sounds.lua`.
 - `/roblox-help` menunjukkan panduan ringkas secara private dalam Discord.

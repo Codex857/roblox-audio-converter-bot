@@ -25,3 +25,11 @@ test("help command is available without options", () => {
   assert.ok(help);
   assert.deepEqual(help.options || [], []);
 });
+
+test("quick upload only asks for one required file", () => {
+  const quick = allCommands.map((item) => item.toJSON()).find((command) => command.name === "upload");
+  assert.ok(quick);
+  assert.deepEqual(quick.options.map((option) => ({ name: option.name, required: option.required })), [
+    { name: "file", required: true }
+  ]);
+});
