@@ -21,6 +21,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
+const BOT_VERSION = "2.1.0";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
 
@@ -299,6 +300,7 @@ client.login(token);
 const httpServer = startServer({
   port: Number(process.env.PORT || 3000),
   getStatus: () => ({
+    version: BOT_VERSION,
     discordReady: client.isReady(),
     guilds: client.guilds.cache.size,
     queue: pendingFileCount(),
