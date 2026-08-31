@@ -4,6 +4,8 @@ Bot Discord ini menukar audio yang anda miliki atau berlesen kepada satu fail OG
 
 Versi 2 menambah queue sehingga 5 kerja menunggu, status kemajuan, preset kualiti Compact/Standard/High, normalisasi loudness pilihan, pengoptimuman automatik, dan upload terus ke Roblox Open Cloud untuk server/role yang dibenarkan.
 
+Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload dikawal menggunakan server dan role Discord.
+
 Bot ini **bukan** alat untuk memintas copyright detection atau moderation. Menukar format tidak memberikan hak untuk memuat naik lagu orang lain dan tidak menjamin Roblox akan menerima sesuatu aset.
 
 ## Persediaan
@@ -29,7 +31,7 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 Dalam Discord:
 
 - `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
-- `/roblox-upload` menukar, upload melalui Open Cloud, menunggu keputusan pemprosesan, kemudian memberi Asset ID dan snippet Lua.
+- `/roblox-upload` hanya memerlukan fail dan pengesahan hak audio. Bot menggunakan tetapan standard, mengekalkan mix asal, upload melalui Open Cloud, kemudian memberi Asset ID dan snippet Lua. Nama aset boleh dibiarkan kosong untuk menggunakan nama fail.
 
 Biarkan `normalize` off untuk mengekalkan mix asal. Setiap upload terus memerlukan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.
 
@@ -66,4 +68,4 @@ Repository ini mengandungi `Dockerfile`, jadi Railway akan mengesan dan membina 
 
 Railway Hobby ialah pilihan praktikal untuk bot kecil yang perlu sentiasa hidup. Kos sebenar bergantung pada RAM, CPU ketika FFmpeg memproses audio, storage, dan network egress. Tetapkan usage alert/limit dan semak anggaran selepas seminggu operasi.
 
-Fail audio kerja disimpan sementara dalam direktori sistem dan dipadam selepas setiap job; volume kekal tidak diperlukan untuk converter sahaja. Sistem langganan memerlukan storan/database kekal dan belum termasuk dalam versi ini.
+Fail audio kerja disimpan sementara dalam direktori sistem dan dipadam selepas setiap job. Volume kekal tidak diperlukan untuk operasi bot semasa.
