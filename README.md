@@ -2,7 +2,7 @@
 
 Bot Discord ini menukar audio yang anda miliki atau berlesen kepada satu fail OGG yang memenuhi spesifikasi teknikal Roblox: stereo, 48 kHz, kurang 7 minit dan kurang 20 MB. Ia mengekalkan mix asal (termasuk bass dan vokal), selain resampling dan peak limiter ringan untuk mengelakkan clipping.
 
-Versi 2.1 menambah upload pukal sehingga 5 lagu dalam satu command, queue maksimum 10 fail aktif/menunggu, status kemajuan setiap lagu, semakan semula fail OGG sebelum upload, mesej ralat Roblox yang lebih jelas, dan eksport Asset ID dalam JSON serta Lua.
+Versi 2.1.1 menambah upload pukal sehingga 5 lagu dalam satu command, queue maksimum 10 fail aktif/menunggu, status kemajuan setiap lagu, semakan semula fail OGG sebelum upload, mesej ralat Roblox yang lebih jelas, dan eksport Asset ID dalam JSON serta Lua.
 
 Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload dikawal menggunakan server dan role Discord.
 
@@ -31,7 +31,7 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 Dalam Discord:
 
 - `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
-- `/roblox-upload` menerima 1 hingga 5 fail dan pengesahan hak audio. Bot menggunakan OGG high quality 192 kbps, mengekalkan mix asal, upload satu demi satu melalui Open Cloud, kemudian memberi Asset ID serta fail `asset_ids.json` dan `sounds.lua`.
+- `/roblox-upload` menerima 1 hingga 5 fail dan pengesahan hak audio. Bot menggunakan OGG high quality 192 kbps dan loudness normalization −14 LUFS / −1.5 dB true peak seperti aplikasi GUI, upload satu demi satu melalui Open Cloud, kemudian memberi Asset ID serta fail `asset_ids.json` dan `sounds.lua`.
 - Untuk satu fail, `name` boleh digunakan sebagai nama aset. Untuk beberapa fail, bot menggunakan nama setiap fail secara automatik. `description` digunakan untuk semua fail dalam batch.
 
 Biarkan `normalize` off untuk mengekalkan mix asal. Setiap upload terus memerlukan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.

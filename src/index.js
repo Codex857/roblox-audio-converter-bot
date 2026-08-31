@@ -21,7 +21,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.1.0";
+const BOT_VERSION = "2.1.1";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
 
@@ -132,8 +132,8 @@ async function uploadOne({ interaction, attachment, index, total, requestedName,
     await downloadAttachment(attachment, inputPath);
     await editStatus(interaction, `🔎 [${index}/${total}] Memeriksa **${safeDiscordText(attachment.name)}**…`);
     await inspectAudio(ffprobeStatic.path, inputPath);
-    await editStatus(interaction, `🎛️ [${index}/${total}] Menukar ke OGG high quality, mix asal…`);
-    await convertAudio(ffmpegPath, inputPath, outputPath, { quality: "high", normalize: false });
+    await editStatus(interaction, `🎛️ [${index}/${total}] Menukar ke OGG high quality dan menyamakan loudness…`);
+    await convertAudio(ffmpegPath, inputPath, outputPath, { quality: "high", normalize: true });
     await inspectConvertedAudio(ffprobeStatic.path, outputPath);
 
     await editStatus(interaction, `☁️ [${index}/${total}] Upload **${safeDiscordText(displayName)}** ke Roblox…`);
@@ -282,7 +282,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     interaction,
     attachments,
     quality: directUpload ? "high" : interaction.options.getString("quality") || "standard",
-    normalize: directUpload ? false : interaction.options.getBoolean("normalize") || false,
+    normalize: directUpload ? true : interaction.options.getBoolean("normalize") || false,
     upload: directUpload ? {
       name: interaction.options.getString("name") || null,
       description: interaction.options.getString("description") || "Uploaded from Discord using licensed audio"

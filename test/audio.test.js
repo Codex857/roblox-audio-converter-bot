@@ -62,7 +62,7 @@ test("converted output is verified as Roblox-compatible OGG", async () => {
       "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.25",
       "-ar", "44100", "-ac", "1", input
     ]);
-    await convertAudio(ffmpegPath, input, output, { quality: "high", normalize: false });
+    await convertAudio(ffmpegPath, input, output, { quality: "high", normalize: true });
     const info = await inspectConvertedAudio(ffprobeStatic.path, output);
     assert.equal(info.codec, "vorbis");
     assert.equal(info.sampleRate, 48000);

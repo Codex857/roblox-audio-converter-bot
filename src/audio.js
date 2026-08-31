@@ -128,7 +128,7 @@ export async function convertAudio(ffmpegPath, inputPath, outputPath, options = 
   // Preserve mode only resamples and catches peaks. Loudness normalization is
   // opt-in because it deliberately changes the dynamics of the original mix.
   const audioFilter = normalize
-    ? "aresample=48000,loudnorm=I=-14:LRA=11:TP=-1.0"
+    ? "aresample=48000,loudnorm=I=-14:TP=-1.5:LRA=11"
     : "aresample=48000,alimiter=limit=0.95:attack=5:release=50";
   const args = [
     "-hide_banner", "-loglevel", "error", "-y", "-i", inputPath,
