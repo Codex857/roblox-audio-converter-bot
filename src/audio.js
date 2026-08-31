@@ -88,6 +88,39 @@ export async function inspectAudio(ffprobePath, inputPath) {
   return { duration };
 }
 
+export async function inspectConvertedAudio(ffprobePath, outputPath) {
+  const { stdout } = await execFileAsync(
+    ffprobePath,
+    [
+      "-v", "error", "-select_streams", "a:0",
+      "-show_entries", "stream=codec_name,sample_rate,channels:format=duration,size",
+      "-of", "json", outputPath
+    ],
+    { timeout: 30_000, maxBuffer: 1024 * 1024 }
+  );
+  const probe = JSON.parse(stdout);
+  const stream = probe.streams?.[0];
+  const duration = Number(probe.format?.duration);
+  const size = Number(probe.format?.size);
+  const sampleRate = Number(stream?.sample_rate);
+  const channels = Number(stream?.channels);
+
+  if (!stream || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(size) || size <= 0) {
+    throw new Error("Fail OGG yang dihasilkan tidak sah.");
+  }
+  if (duration > ROBLOX_MAX_SECONDS + 0.25) {
+    throw new Error("Fail OGG yang dihasilkan melebihi had Roblox 7 minit.");
+  }
+  if (size >= ROBLOX_MAX_BYTES) {
+    throw new Error("Fail OGG yang dihasilkan melebihi had Roblox 20 MB.");
+  }
+  if (stream.codec_name !== "vorbis" || sampleRate !== 48_000 || channels !== 2) {
+    throw new Error("Fail output bukan OGG Vorbis stereo 48 kHz yang sah.");
+  }
+
+  return { duration, size, sampleRate, channels, codec: stream.codec_name };
+}
+
 export async function convertAudio(ffmpegPath, inputPath, outputPath, options = {}) {
   const quality = options.quality || "standard";
   const normalize = options.normalize === true;
@@ -116,4 +149,16 @@ export function safeBaseName(name = "audio") {
   const withoutExtension = name.replace(/\.[^.]+$/, "");
   const cleaned = withoutExtension.normalize("NFKD").replace(/[^a-zA-Z0-9_-]+/g, "-");
   return cleaned.replace(/^-+|-+$/g, "").slice(0, 60) || "audio";
+}
+
+export function assetDisplayName(name = "Audio", { stripExtension = true } = {}) {
+  const source = String(name);
+  const withoutExtension = stripExtension ? source.replace(/\.[^.]+$/, "") : source;
+  const cleaned = withoutExtension
+    .normalize("NFKC")
+    .replace(/[_-]+/g, " ")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (cleaned || "Audio").slice(0, 50);
 }

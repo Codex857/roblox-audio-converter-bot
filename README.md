@@ -2,7 +2,7 @@
 
 Bot Discord ini menukar audio yang anda miliki atau berlesen kepada satu fail OGG yang memenuhi spesifikasi teknikal Roblox: stereo, 48 kHz, kurang 7 minit dan kurang 20 MB. Ia mengekalkan mix asal (termasuk bass dan vokal), selain resampling dan peak limiter ringan untuk mengelakkan clipping.
 
-Versi 2 menambah queue sehingga 5 kerja menunggu, status kemajuan, preset kualiti Compact/Standard/High, normalisasi loudness pilihan, pengoptimuman automatik, dan upload terus ke Roblox Open Cloud untuk server/role yang dibenarkan.
+Versi 2.1 menambah upload pukal sehingga 5 lagu dalam satu command, queue maksimum 10 fail aktif/menunggu, status kemajuan setiap lagu, semakan semula fail OGG sebelum upload, mesej ralat Roblox yang lebih jelas, dan eksport Asset ID dalam JSON serta Lua.
 
 Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload dikawal menggunakan server dan role Discord.
 
@@ -31,7 +31,8 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 Dalam Discord:
 
 - `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
-- `/roblox-upload` hanya memerlukan fail dan pengesahan hak audio. Bot menggunakan tetapan standard, mengekalkan mix asal, upload melalui Open Cloud, kemudian memberi Asset ID dan snippet Lua. Nama aset boleh dibiarkan kosong untuk menggunakan nama fail.
+- `/roblox-upload` menerima 1 hingga 5 fail dan pengesahan hak audio. Bot menggunakan OGG high quality 192 kbps, mengekalkan mix asal, upload satu demi satu melalui Open Cloud, kemudian memberi Asset ID serta fail `asset_ids.json` dan `sounds.lua`.
+- Untuk satu fail, `name` boleh digunakan sebagai nama aset. Untuk beberapa fail, bot menggunakan nama setiap fail secara automatik. `description` digunakan untuk semua fail dalam batch.
 
 Biarkan `normalize` off untuk mengekalkan mix asal. Setiap upload terus memerlukan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.
 
@@ -43,16 +44,20 @@ Tetapkan secrets berikut pada host, bukan dalam GitHub atau mesej Discord:
 - `ROBLOX_CREATOR_TYPE` — `Group` atau `User`.
 - `ROBLOX_CREATOR_ID` — ID group/user Roblox.
 - `ROBLOX_UPLOAD_GUILD_ID` — ID server Discord yang dibenarkan.
-- `ROBLOX_UPLOAD_ROLE_ID` — ID role Discord yang boleh menggunakan `/roblox-upload`.
+- `ROBLOX_UPLOAD_ROLE_ID` — ID role Discord yang boleh menggunakan `/roblox-upload`. Gunakan ID server/guild yang sama untuk membenarkan role `@everyone`.
 
 Untuk group, gunakan akaun automasi khusus yang mempunyai permission group minimum yang diperlukan. Hadkan API key kepada permission dan IP sekecil yang praktikal, putar key jika terdedah, dan jangan gunakan tetapan IP terbuka melainkan host anda memerlukannya.
 
 ## Batas
 
 - Input: MP3, OGG, WAV, FLAC, M4A, atau AAC; maksimum 25 MB.
-- Output: OGG Vorbis, stereo, 48 kHz, nominal 160 kbps.
+- Output `/roblox-audio`: OGG Vorbis, stereo, 48 kHz, nominal 160 kbps.
+- Output `/roblox-upload`: OGG Vorbis, stereo, 48 kHz, nominal 192 kbps.
 - Durasi: maksimum 7 minit.
-- Satu proses pada satu masa untuk mengelakkan server kecil kehabisan CPU/RAM.
+- Batch upload: maksimum 5 lagu bagi command; maksimum 10 fail aktif/menunggu.
+- Satu conversion/upload berjalan pada satu masa untuk mengelakkan server kecil kehabisan CPU/RAM.
+
+Had format, saiz dan durasi dirujuk daripada dokumentasi rasmi [Roblox Audio Assets](https://create.roblox.com/docs/audio/assets) dan [Open Cloud Assets](https://create.roblox.com/docs/cloud/guides/usage-assets).
 
 ## Deploy 24/7 di Railway
 

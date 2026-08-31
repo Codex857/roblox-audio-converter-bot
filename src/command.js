@@ -24,15 +24,27 @@ export const robloxAudioCommand = new SlashCommandBuilder()
 
 export const robloxUploadCommand = new SlashCommandBuilder()
   .setName("roblox-upload")
-  .setDescription("Tukar dan upload audio berlesen terus ke Roblox")
+  .setDescription("Tukar dan upload sehingga 5 audio berlesen terus ke Roblox")
   .addAttachmentOption((option) =>
-    option.setName("file").setDescription("Audio MP3, OGG, WAV, FLAC, M4A, atau AAC").setRequired(true)
+    option.setName("file").setDescription("Audio pertama (MP3, OGG, WAV, FLAC, M4A, atau AAC)").setRequired(true)
   )
   .addBooleanOption((option) =>
-    option.setName("rights_confirm").setDescription("Saya memiliki/hak lesen untuk upload audio ini").setRequired(true)
+    option.setName("rights_confirm").setDescription("Saya memiliki/hak lesen untuk semua audio ini").setRequired(true)
+  )
+  .addAttachmentOption((option) =>
+    option.setName("file_2").setDescription("Audio kedua (pilihan)")
+  )
+  .addAttachmentOption((option) =>
+    option.setName("file_3").setDescription("Audio ketiga (pilihan)")
+  )
+  .addAttachmentOption((option) =>
+    option.setName("file_4").setDescription("Audio keempat (pilihan)")
+  )
+  .addAttachmentOption((option) =>
+    option.setName("file_5").setDescription("Audio kelima (pilihan)")
   )
   .addStringOption((option) =>
-    option.setName("name").setDescription("Nama aset; kosongkan untuk guna nama fail").setMaxLength(50)
+    option.setName("name").setDescription("Nama aset jika hanya satu fail; jika kosong guna nama fail").setMaxLength(50)
   )
   .addStringOption((option) =>
     option.setName("description").setDescription("Penerangan aset dan sumber lesen").setMaxLength(1000)

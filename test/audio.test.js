@@ -1,6 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bitrateForQuality, safeBaseName, validateAttachment } from "../src/audio.js";
+import { execFile } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import ffmpegPath from "ffmpeg-static";
+import ffprobeStatic from "ffprobe-static";
+import {
+  assetDisplayName,
+  bitrateForQuality,
+  convertAudio,
+  inspectConvertedAudio,
+  safeBaseName,
+  validateAttachment
+} from "../src/audio.js";
+
+const execFileAsync = promisify(execFile);
 
 test("safeBaseName produces a portable output name", () => {
   assert.equal(safeBaseName("Lagu Saya (Final).mp3"), "Lagu-Saya-Final");
@@ -28,4 +44,31 @@ test("bitrateForQuality maps supported presets", () => {
   assert.equal(bitrateForQuality("standard"), "160k");
   assert.equal(bitrateForQuality("high"), "192k");
   assert.throws(() => bitrateForQuality("extreme"), /kualiti tidak sah/);
+});
+
+test("assetDisplayName keeps readable Unicode names", () => {
+  assert.equal(assetDisplayName("Lagu_Baru-Final.mp3"), "Lagu Baru Final");
+  assert.equal(assetDisplayName("音乐_akhir.ogg"), "音乐 akhir");
+  assert.equal(assetDisplayName("---.wav"), "Audio");
+  assert.equal(assetDisplayName("Mix v1.2", { stripExtension: false }), "Mix v1.2");
+});
+
+test("converted output is verified as Roblox-compatible OGG", async () => {
+  const workDir = await mkdtemp(join(tmpdir(), "audio-test-"));
+  const input = join(workDir, "input.wav");
+  const output = join(workDir, "output.ogg");
+  try {
+    await execFileAsync(ffmpegPath, [
+      "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.25",
+      "-ar", "44100", "-ac", "1", input
+    ]);
+    await convertAudio(ffmpegPath, input, output, { quality: "high", normalize: false });
+    const info = await inspectConvertedAudio(ffprobeStatic.path, output);
+    assert.equal(info.codec, "vorbis");
+    assert.equal(info.sampleRate, 48000);
+    assert.equal(info.channels, 2);
+    assert.ok(info.size > 0);
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
+  }
 });

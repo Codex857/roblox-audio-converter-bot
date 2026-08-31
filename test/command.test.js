@@ -11,3 +11,11 @@ test("required Discord options precede optional options", () => {
     }
   }
 });
+
+test("direct upload accepts up to five attachments", () => {
+  const upload = allCommands.map((item) => item.toJSON()).find((command) => command.name === "roblox-upload");
+  const attachmentNames = upload.options
+    .filter((option) => option.type === 11)
+    .map((option) => option.name);
+  assert.deepEqual(attachmentNames, ["file", "file_2", "file_3", "file_4", "file_5"]);
+});
