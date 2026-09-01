@@ -31,7 +31,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.6.1";
+const BOT_VERSION = "2.6.2";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
@@ -443,6 +443,13 @@ async function showYouTubeConfirmation(interaction) {
     });
     return;
   }
+  if (!interaction.options.getBoolean("rights_confirm", true)) {
+    await interaction.reply({
+      content: "❌ Upload dibatalkan. Anda mesti memiliki atau mempunyai lesen audio tersebut.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
 
   let url;
   try {
@@ -452,37 +459,9 @@ async function showYouTubeConfirmation(interaction) {
     return;
   }
 
-  const requestId = randomUUID().replaceAll("-", "");
-  quickUploadConfirmations.set(requestId, {
-    ownerId: interaction.user.id,
-    interaction,
-    youtube: { url }
-  });
-  try {
-    await interaction.reply({
-      content: [
-        `🔗 YouTube: <${url}>`,
-        "Bot akan mengambil satu video, menukar audionya kepada MP3, mengedit dan upload ke Roblox.",
-        "Tekan butang hijau untuk mengesahkan anda memiliki atau mempunyai lesen audio ini."
-      ].join("\n"),
-      components: quickUploadComponents(requestId),
-      flags: MessageFlags.Ephemeral,
-      allowedMentions: { parse: [] }
-    });
-  } catch (error) {
-    quickUploadConfirmations.delete(requestId);
-    throw error;
-  }
-
-  const timer = setTimeout(() => {
-    if (!quickUploadConfirmations.delete(requestId)) return;
-    void interaction.editReply({
-      content: "⌛ Pengesahan tamat masa. Jalankan `/yt` semula.",
-      components: [],
-      allowedMentions: { parse: [] }
-    }).catch(() => {});
-  }, QUICK_CONFIRM_MS);
-  timer.unref?.();
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await editStatus(interaction, `⏳ Link diterima. Memulakan auto proses dan upload…\n<${url}>`);
+  await enqueueJob({ interaction, youtube: { url } });
 }
 
 async function handleQuickUploadButton(interaction) {
@@ -534,7 +513,7 @@ async function handleMenuButton(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna menu audio Roblox**",
-        "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, atau **Link YouTube** untuk menampal satu link video public.",
+        "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, atau **YouTube Auto Upload** untuk menampal satu link video public.",
         "2. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
         "3. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
@@ -661,7 +640,7 @@ async function handleInteraction(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Menu Audio Roblox**",
-        "Pilih cara upload di bawah. Borang dan hasil hanya dapat dilihat oleh anda."
+        "Pilih cara upload di bawah. YouTube akan terus auto convert, edit dan upload selepas borang dihantar."
       ].join("\n"),
       components: mainMenuComponents(),
       flags: MessageFlags.Ephemeral,
@@ -684,7 +663,7 @@ async function handleInteraction(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna bot audio Roblox**",
-        "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio** atau **Link YouTube**.",
+        "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio** atau **YouTube Auto Upload**.",
         "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
         "",
         "Menu menyokong 1–5 fail sekali atau satu link video YouTube public.",

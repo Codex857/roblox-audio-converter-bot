@@ -63,9 +63,15 @@ export const quickUploadCommand = new SlashCommandBuilder()
 
 export const youtubeUploadCommand = new SlashCommandBuilder()
   .setName("yt")
-  .setDescription("Tampal link YouTube untuk tukar, edit dan upload audio")
+  .setDescription("Tampal link YouTube dan terus auto edit serta upload")
   .addStringOption((option) =>
     option.setName("link").setDescription("Link satu video YouTube public").setRequired(true).setMaxLength(300)
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("rights_confirm")
+      .setDescription("Saya memiliki atau mempunyai lesen untuk audio ini")
+      .setRequired(true)
   );
 
 export const menuCommand = new SlashCommandBuilder()

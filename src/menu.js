@@ -19,7 +19,7 @@ export function mainMenuComponents() {
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId("music-menu:youtube")
-      .setLabel("Link YouTube")
+      .setLabel("YouTube Auto Upload")
       .setEmoji("🔗")
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
@@ -61,7 +61,7 @@ export function fileUploadModal() {
 export function youtubeUploadModal() {
   return new ModalBuilder()
     .setCustomId("music-menu:youtube-modal")
-    .setTitle("Upload daripada YouTube")
+    .setTitle("YouTube Auto Convert & Upload")
     .addLabelComponents(
       new LabelBuilder()
         .setLabel("Link satu video YouTube public")

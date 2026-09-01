@@ -40,10 +40,11 @@ test("quick upload only asks for one required file", () => {
   ]);
 });
 
-test("YouTube upload only asks for one required link", () => {
+test("YouTube upload asks once for the link and rights confirmation", () => {
   const youtube = allCommands.map((item) => item.toJSON()).find((command) => command.name === "yt");
   assert.ok(youtube);
   assert.deepEqual(youtube.options.map((option) => ({ name: option.name, required: option.required })), [
-    { name: "link", required: true }
+    { name: "link", required: true },
+    { name: "rights_confirm", required: true }
   ]);
 });
