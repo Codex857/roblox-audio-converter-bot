@@ -61,4 +61,17 @@ export const quickUploadCommand = new SlashCommandBuilder()
     option.setName("file").setDescription("Pilih fail lagu anda").setRequired(true)
   );
 
-export const allCommands = [quickUploadCommand, robloxUploadCommand, robloxAudioCommand, robloxHelpCommand];
+export const youtubeUploadCommand = new SlashCommandBuilder()
+  .setName("yt")
+  .setDescription("Tampal link YouTube untuk tukar, edit dan upload audio")
+  .addStringOption((option) =>
+    option.setName("link").setDescription("Link satu video YouTube public").setRequired(true).setMaxLength(300)
+  );
+
+export const allCommands = [
+  quickUploadCommand,
+  youtubeUploadCommand,
+  robloxUploadCommand,
+  robloxAudioCommand,
+  robloxHelpCommand
+];

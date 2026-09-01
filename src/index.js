@@ -17,6 +17,7 @@ import ffprobeStatic from "ffprobe-static";
 import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
 import { startServer } from "./server.js";
 import { buildUploadExports } from "./upload-results.js";
+import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
   assetDisplayName,
@@ -29,7 +30,8 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.3.0";
+const BOT_VERSION = "2.4.0";
+const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
 
@@ -50,6 +52,8 @@ const MAX_PENDING_FILES = 10;
 const QUICK_CONFIRM_MS = 60_000;
 let activeFileCount = 0;
 let processing = false;
+let youtubeReady = false;
+let youtubeToolVersion = null;
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Bot aktif sebagai ${readyClient.user.tag}`);
@@ -59,8 +63,22 @@ client.on(Events.Error, (error) => {
   console.error("Discord client error:", error);
 });
 
+void checkYouTubeTool(ytDlpPath)
+  .then((version) => {
+    youtubeReady = true;
+    youtubeToolVersion = version;
+    console.log(`YouTube downloader aktif: yt-dlp ${version}`);
+  })
+  .catch((error) => {
+    console.error("YouTube downloader tidak tersedia:", error.message);
+  });
+
+function jobFileCount(job) {
+  return job.attachments?.length || (job.youtube ? 1 : 0);
+}
+
 function pendingFileCount() {
-  return activeFileCount + jobQueue.reduce((total, job) => total + job.attachments.length, 0);
+  return activeFileCount + jobQueue.reduce((total, job) => total + jobFileCount(job), 0);
 }
 
 function errorMessage(error) {
@@ -172,6 +190,32 @@ async function startUploadOne({ interaction, attachment, index, total, requested
   }
 }
 
+async function replyWithUploadResults(interaction, results) {
+  const successful = results.filter((result) => result.assetId);
+  const failed = results.filter((result) => result.error);
+  const summary = [
+    `${successful.length ? "✅" : "❌"} Selesai: ${successful.length}/${results.length} upload berjaya.`,
+    ...successful.map((result) => `✅ ${safeDiscordText(result.name)} — **${result.assetId}**`),
+    ...failed.map((result) => `❌ ${safeDiscordText(result.name)} — ${safeDiscordText(result.error)}`),
+    successful.length ? "Fail JSON dan Lua dilampirkan. Gunakan audio hanya mengikut hak/lesen anda." : "Tiada aset berjaya diupload."
+  ];
+  const files = [];
+  if (successful.length) {
+    const exported = buildUploadExports(successful);
+    files.push(
+      { attachment: Buffer.from(exported.json, "utf8"), name: "asset_ids.json" },
+      { attachment: Buffer.from(exported.lua, "utf8"), name: "sounds.lua" }
+    );
+  }
+
+  await interaction.editReply({
+    content: summary.join("\n").slice(0, 1950),
+    files,
+    components: [],
+    allowedMentions: { parse: [] }
+  });
+}
+
 async function processUploadJob({ interaction, attachments, upload }) {
   const results = [];
   const started = [];
@@ -216,33 +260,56 @@ async function processUploadJob({ interaction, attachments, upload }) {
   }
 
   results.sort((left, right) => left.index - right.index);
+  await replyWithUploadResults(interaction, results);
+}
 
-  const successful = results.filter((result) => result.assetId);
-  const failed = results.filter((result) => result.error);
-  const summary = [
-    `${successful.length ? "✅" : "❌"} Selesai: ${successful.length}/${results.length} upload berjaya.`,
-    ...successful.map((result) => `✅ ${safeDiscordText(result.name)} — **${result.assetId}**`),
-    ...failed.map((result) => `❌ ${safeDiscordText(result.name)} — ${safeDiscordText(result.error)}`),
-    successful.length ? "Fail JSON dan Lua dilampirkan. Gunakan audio hanya mengikut hak/lesen anda." : "Tiada aset berjaya diupload."
-  ];
-  const files = [];
-  if (successful.length) {
-    const exported = buildUploadExports(successful);
-    files.push(
-      { attachment: Buffer.from(exported.json, "utf8"), name: "asset_ids.json" },
-      { attachment: Buffer.from(exported.lua, "utf8"), name: "sounds.lua" }
-    );
+async function processYouTubeUploadJob({ interaction, youtube }) {
+  let workDir;
+  let displayName = "YouTube Audio";
+
+  try {
+    await editStatus(interaction, "🔗 Membaca link dan memuat turun audio YouTube sebagai MP3…");
+    workDir = await mkdtemp(join(tmpdir(), "roblox-youtube-"));
+    const mp3Path = join(workDir, "youtube-source.mp3");
+    const outputName = "youtube-roblox.ogg";
+    const outputPath = join(workDir, outputName);
+    const source = await downloadYouTubeMp3({
+      ytDlpPath,
+      ffmpegPath,
+      url: youtube.url,
+      outputPath: mp3Path
+    });
+    displayName = assetDisplayName(source.title, { stripExtension: false });
+
+    await editStatus(interaction, `🎛️ Mengedit **${safeDiscordText(displayName)}** dengan tetapan Roblox…`);
+    await inspectAudio(ffprobeStatic.path, source.path);
+    await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: true });
+    await inspectConvertedAudio(ffprobeStatic.path, outputPath);
+
+    await editStatus(interaction, `☁️ Upload **${safeDiscordText(displayName)}** ke Roblox…`);
+    const operationPath = await roblox.upload({
+      filePath: outputPath,
+      fileName: outputName,
+      displayName,
+      description: "Audio from a user-confirmed licensed YouTube source"
+    });
+    await editStatus(interaction, "⏳ Roblox sedang memproses audio…");
+    const assetId = await roblox.waitForAsset(operationPath);
+    await replyWithUploadResults(interaction, [{ index: 1, name: displayName, assetId }]);
+  } catch (error) {
+    await replyWithUploadResults(interaction, [{
+      index: 1,
+      name: displayName,
+      error: errorMessage(error)
+    }]);
+  } finally {
+    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
-
-  await interaction.editReply({
-    content: summary.join("\n").slice(0, 1950),
-    files,
-    allowedMentions: { parse: [] }
-  });
 }
 
 async function processAudioJob(job) {
-  if (job.upload) await processUploadJob(job);
+  if (job.youtube) await processYouTubeUploadJob(job);
+  else if (job.upload) await processUploadJob(job);
   else await processConversionJob(job);
 }
 
@@ -252,7 +319,7 @@ async function drainQueue() {
   try {
     while (jobQueue.length > 0) {
       const job = jobQueue.shift();
-      activeFileCount = job.attachments.length;
+      activeFileCount = jobFileCount(job);
       try {
         await processAudioJob(job);
       } catch (error) {
@@ -273,7 +340,7 @@ async function drainQueue() {
 
 async function enqueueJob(job) {
   const pendingBefore = pendingFileCount();
-  if (pendingBefore + job.attachments.length > MAX_PENDING_FILES) {
+  if (pendingBefore + jobFileCount(job) > MAX_PENDING_FILES) {
     await job.interaction.editReply({
       content: `Queue hampir penuh. Maksimum ${MAX_PENDING_FILES} fail aktif/menunggu; cuba lagi sebentar.`,
       components: [],
@@ -347,6 +414,70 @@ async function showQuickUploadConfirmation(interaction) {
   timer.unref?.();
 }
 
+async function showYouTubeConfirmation(interaction) {
+  if (!roblox.configured) {
+    await interaction.reply({
+      content: "❌ Roblox Open Cloud belum dikonfigurasi oleh pemilik bot.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+  if (!youtubeReady) {
+    await interaction.reply({
+      content: "❌ Downloader YouTube belum tersedia. Cuba lagi selepas bot selesai bermula.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+  if (!canUseRobloxUpload(interaction, robloxAccess)) {
+    await interaction.reply({
+      content: "❌ Anda tiada akses untuk upload ke creator Roblox bot ini.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  let url;
+  try {
+    url = normalizeYouTubeUrl(interaction.options.getString("link", true));
+  } catch (error) {
+    await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const requestId = randomUUID().replaceAll("-", "");
+  quickUploadConfirmations.set(requestId, {
+    ownerId: interaction.user.id,
+    interaction,
+    youtube: { url }
+  });
+  try {
+    await interaction.reply({
+      content: [
+        `🔗 YouTube: <${url}>`,
+        "Bot akan mengambil satu video, menukar audionya kepada MP3, mengedit dan upload ke Roblox.",
+        "Tekan butang hijau untuk mengesahkan anda memiliki atau mempunyai lesen audio ini."
+      ].join("\n"),
+      components: quickUploadComponents(requestId),
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+  } catch (error) {
+    quickUploadConfirmations.delete(requestId);
+    throw error;
+  }
+
+  const timer = setTimeout(() => {
+    if (!quickUploadConfirmations.delete(requestId)) return;
+    void interaction.editReply({
+      content: "⌛ Pengesahan tamat masa. Jalankan `/yt` semula.",
+      components: [],
+      allowedMentions: { parse: [] }
+    }).catch(() => {});
+  }, QUICK_CONFIRM_MS);
+  timer.unref?.();
+}
+
 async function handleQuickUploadButton(interaction) {
   const match = /^quick-upload:([a-f0-9]{32}):(confirm|cancel)$/.exec(interaction.customId);
   if (!match) return false;
@@ -369,16 +500,23 @@ async function handleQuickUploadButton(interaction) {
   }
 
   await interaction.update({ content: "⏳ Menyediakan upload…", components: [], allowedMentions: { parse: [] } });
-  await enqueueJob({
-    interaction: pending.interaction,
-    attachments: [pending.attachment],
-    quality: "high",
-    normalize: true,
-    upload: {
-      name: null,
-      description: "Uploaded from Discord using licensed audio"
-    }
-  });
+  if (pending.youtube) {
+    await enqueueJob({
+      interaction: pending.interaction,
+      youtube: pending.youtube
+    });
+  } else {
+    await enqueueJob({
+      interaction: pending.interaction,
+      attachments: [pending.attachment],
+      quality: "high",
+      normalize: true,
+      upload: {
+        name: null,
+        description: "Uploaded from Discord using licensed audio"
+      }
+    });
+  }
   return true;
 }
 
@@ -388,10 +526,15 @@ async function handleInteraction(interaction) {
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["upload", "roblox-audio", "roblox-upload", "roblox-help"].includes(interaction.commandName)) return;
+  if (!["upload", "yt", "roblox-audio", "roblox-upload", "roblox-help"].includes(interaction.commandName)) return;
 
   if (interaction.commandName === "upload") {
     await showQuickUploadConfirmation(interaction);
+    return;
+  }
+
+  if (interaction.commandName === "yt") {
+    await showYouTubeConfirmation(interaction);
     return;
   }
 
@@ -400,6 +543,7 @@ async function handleInteraction(interaction) {
       content: [
         "🎵 **Cara guna bot audio Roblox**",
         "**Paling mudah:** taip `/upload`, pilih lagu, kemudian tekan butang hijau.",
+        "**Link YouTube:** taip `/yt`, tampal link satu video public, kemudian tekan butang hijau.",
         "",
         "Untuk 2–5 lagu sekali, gunakan `/roblox-upload`, pilih fail dan tetapkan `rights_confirm` kepada **True**.",
         "Tunggu bot memberikan Asset ID, JSON serta Lua.",
@@ -485,7 +629,9 @@ const httpServer = startServer({
     discordReady: client.isReady(),
     guilds: client.guilds.cache.size,
     queue: pendingFileCount(),
-    robloxUploadConfigured: roblox.configured
+    robloxUploadConfigured: roblox.configured,
+    youtubeReady,
+    youtubeToolVersion
   })
 });
 
