@@ -68,7 +68,12 @@ export const youtubeUploadCommand = new SlashCommandBuilder()
     option.setName("link").setDescription("Link satu video YouTube public").setRequired(true).setMaxLength(300)
   );
 
+export const menuCommand = new SlashCommandBuilder()
+  .setName("menu")
+  .setDescription("Buka menu paling mudah untuk upload audio atau link YouTube");
+
 export const allCommands = [
+  menuCommand,
   quickUploadCommand,
   youtubeUploadCommand,
   robloxUploadCommand,

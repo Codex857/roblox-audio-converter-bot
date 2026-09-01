@@ -26,6 +26,12 @@ test("help command is available without options", () => {
   assert.deepEqual(help.options || [], []);
 });
 
+test("menu command is available without options", () => {
+  const menu = allCommands.map((item) => item.toJSON()).find((command) => command.name === "menu");
+  assert.ok(menu);
+  assert.deepEqual(menu.options || [], []);
+});
+
 test("quick upload only asks for one required file", () => {
   const quick = allCommands.map((item) => item.toJSON()).find((command) => command.name === "upload");
   assert.ok(quick);

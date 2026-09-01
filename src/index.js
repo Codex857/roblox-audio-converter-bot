@@ -15,6 +15,7 @@ import {
 import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
 import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
+import { fileUploadModal, mainMenuComponents, youtubeUploadModal } from "./menu.js";
 import { startServer } from "./server.js";
 import { buildUploadExports } from "./upload-results.js";
 import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
@@ -30,7 +31,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.4.0";
+const BOT_VERSION = "2.5.0";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
@@ -520,13 +521,148 @@ async function handleQuickUploadButton(interaction) {
   return true;
 }
 
+async function handleMenuButton(interaction) {
+  if (!interaction.customId.startsWith("music-menu:")) return false;
+
+  if (interaction.customId === "music-menu:help") {
+    await interaction.reply({
+      content: [
+        "🎵 **Cara guna menu audio Roblox**",
+        "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, atau **Link YouTube** untuk menampal satu link video public.",
+        "2. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
+        "3. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "",
+        "Semua upload masih melalui moderation Roblox. Playlist, live, video private dan DRM tidak disokong."
+      ].join("\n"),
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return true;
+  }
+
+  if (!["music-menu:file", "music-menu:youtube"].includes(interaction.customId)) return true;
+  if (!roblox.configured) {
+    await interaction.reply({
+      content: "❌ Roblox Open Cloud belum dikonfigurasi oleh pemilik bot.",
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+  if (!canUseRobloxUpload(interaction, robloxAccess)) {
+    await interaction.reply({
+      content: "❌ Anda tiada akses untuk upload ke creator Roblox bot ini.",
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+  if (interaction.customId === "music-menu:youtube" && !youtubeReady) {
+    await interaction.reply({
+      content: "❌ Downloader YouTube belum tersedia. Cuba lagi selepas bot selesai bermula.",
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+
+  await interaction.showModal(
+    interaction.customId === "music-menu:file" ? fileUploadModal() : youtubeUploadModal()
+  );
+  return true;
+}
+
+async function handleMenuModal(interaction) {
+  if (!["music-menu:file-modal", "music-menu:youtube-modal"].includes(interaction.customId)) return false;
+
+  if (!roblox.configured) {
+    await interaction.reply({
+      content: "❌ Roblox Open Cloud belum dikonfigurasi oleh pemilik bot.",
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+  if (!canUseRobloxUpload(interaction, robloxAccess)) {
+    await interaction.reply({
+      content: "❌ Anda tiada akses untuk upload ke creator Roblox bot ini.",
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+  if (interaction.fields.getCheckbox("rights_confirm") !== true) {
+    await interaction.reply({
+      content: "❌ Upload dibatalkan. Anda mesti memiliki atau mempunyai lesen audio tersebut.",
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+
+  if (interaction.customId === "music-menu:file-modal") {
+    const attachments = [...interaction.fields.getUploadedFiles("audio_files", true).values()];
+    try {
+      for (const attachment of attachments) validateAttachment(attachment);
+    } catch (error) {
+      await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+      return true;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await enqueueJob({
+      interaction,
+      attachments,
+      quality: "high",
+      normalize: true,
+      upload: {
+        name: null,
+        description: "Uploaded from Discord using licensed audio"
+      }
+    });
+    return true;
+  }
+
+  if (!youtubeReady) {
+    await interaction.reply({
+      content: "❌ Downloader YouTube belum tersedia. Cuba lagi selepas bot selesai bermula.",
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+
+  let url;
+  try {
+    url = normalizeYouTubeUrl(interaction.fields.getTextInputValue("youtube_link"));
+  } catch (error) {
+    await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+    return true;
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await enqueueJob({ interaction, youtube: { url } });
+  return true;
+}
+
 async function handleInteraction(interaction) {
   if (interaction.isButton()) {
-    await handleQuickUploadButton(interaction);
+    if (await handleQuickUploadButton(interaction)) return;
+    await handleMenuButton(interaction);
+    return;
+  }
+  if (interaction.isModalSubmit()) {
+    await handleMenuModal(interaction);
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["upload", "yt", "roblox-audio", "roblox-upload", "roblox-help"].includes(interaction.commandName)) return;
+  if (!["menu", "upload", "yt", "roblox-audio", "roblox-upload", "roblox-help"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "menu") {
+    await interaction.reply({
+      content: [
+        "🎵 **Menu Audio Roblox**",
+        "Pilih cara upload di bawah. Borang dan hasil hanya dapat dilihat oleh anda."
+      ].join("\n"),
+      components: mainMenuComponents(),
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
 
   if (interaction.commandName === "upload") {
     await showQuickUploadConfirmation(interaction);
@@ -542,13 +678,13 @@ async function handleInteraction(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna bot audio Roblox**",
-        "**Paling mudah:** taip `/upload`, pilih lagu, kemudian tekan butang hijau.",
-        "**Link YouTube:** taip `/yt`, tampal link satu video public, kemudian tekan butang hijau.",
+        "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio** atau **Link YouTube**.",
+        "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
         "",
-        "Untuk 2–5 lagu sekali, gunakan `/roblox-upload`, pilih fail dan tetapkan `rights_confirm` kepada **True**.",
+        "Menu menyokong 1–5 fail sekali atau satu link video YouTube public.",
         "Tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
-        "Nama aset diambil daripada nama fail secara automatik. `name` dan `description` hanya pilihan.",
+        "Arahan lama `/upload`, `/yt` dan `/roblox-upload` masih boleh digunakan.",
         "Gunakan audio yang anda miliki atau mempunyai lesen. Semua upload tetap melalui moderation Roblox."
       ].join("\n"),
       flags: MessageFlags.Ephemeral,
