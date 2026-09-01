@@ -4,6 +4,8 @@ Bot Discord ini menukar audio yang anda miliki atau berlesen kepada satu fail OG
 
 Versi 2.5 menambah `/menu` sebagai satu pintu utama. Pengguna hanya perlu memilih butang fail atau YouTube, mengisi borang ringkas, mengesahkan hak audio, kemudian bot memprosesnya dan memberikan Asset ID, JSON serta Lua.
 
+Versi 2.6 mendaftarkan command secara global dan menyokong allowlist beberapa server Discord tanpa membuka quota upload Roblox kepada server yang tidak diluluskan.
+
 Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload dikawal menggunakan server dan role Discord.
 
 Bot ini **bukan** alat untuk memintas copyright detection atau moderation. Menukar format tidak memberikan hak untuk memuat naik lagu orang lain dan tidak menjamin Roblox akan menerima sesuatu aset.
@@ -22,7 +24,7 @@ npm run register
 npm start
 ```
 
-Selepas bot sudah dipasang pada server, jalankan `npm run register:guilds` jika anda mahu command muncul serta-merta pada server tersebut.
+Untuk bot yang digunakan pada beberapa server, jalankan `npm run register:global` supaya command tersedia pada semua server sekarang dan akan datang. `npm run register:guilds` hanya berguna untuk kemas kini segera pada server yang bot sudah sertai.
 
 Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut. Tanpanya, command didaftarkan secara global dan mungkin mengambil masa untuk muncul.
 
@@ -47,7 +49,9 @@ Tetapkan secrets berikut pada host, bukan dalam GitHub atau mesej Discord:
 - `ROBLOX_CREATOR_TYPE` — `Group` atau `User`.
 - `ROBLOX_CREATOR_ID` — ID group/user Roblox.
 - `ROBLOX_UPLOAD_GUILD_ID` — ID server Discord yang dibenarkan.
+- `ROBLOX_UPLOAD_GUILD_IDS` — beberapa ID server tambahan, dipisahkan dengan koma.
 - `ROBLOX_UPLOAD_ROLE_ID` — ID role Discord yang boleh menggunakan `/roblox-upload`. Gunakan ID server/guild yang sama untuk membenarkan role `@everyone`.
+- `ROBLOX_UPLOAD_ROLE_IDS` — beberapa ID role tambahan; gunakan `*` untuk semua role dalam server yang sudah dibenarkan.
 
 Untuk group, gunakan akaun automasi khusus yang mempunyai permission group minimum yang diperlukan. Hadkan API key kepada permission dan IP sekecil yang praktikal, putar key jika terdedah, dan jangan gunakan tetapan IP terbuka melainkan host anda memerlukannya.
 
@@ -76,7 +80,7 @@ Repository ini mengandungi `Dockerfile`, jadi Railway akan mengesan dan membina 
 4. Gunakan region Asia yang paling dekat dengan pengguna anda jika tersedia.
 5. Dalam Service Settings, tetapkan Restart Policy kepada **Always**.
 6. Deploy dan pastikan log menunjukkan `Bot aktif sebagai ...`.
-7. Jalankan `npm run register:guilds` secara lokal setiap kali bentuk slash command berubah.
+7. Jalankan `npm run register:global` secara lokal setiap kali bentuk slash command berubah.
 
 Railway Hobby ialah pilihan praktikal untuk bot kecil yang perlu sentiasa hidup. Kos sebenar bergantung pada RAM, CPU ketika FFmpeg memproses audio, storage, dan network egress. Tetapkan usage alert/limit dan semak anggaran selepas seminggu operasi.
 

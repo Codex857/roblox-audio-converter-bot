@@ -26,6 +26,30 @@ test("direct upload access is restricted by guild and role", () => {
   assert.equal(canUseRobloxUpload(base, { userIds: "user-1" }), true);
 });
 
+test("direct upload supports multiple allowlisted guilds and roles", () => {
+  const first = { user: { id: "user-1" }, guildId: "guild-1" };
+  const second = { user: { id: "user-2" }, guildId: "guild-2" };
+  const third = { user: { id: "user-3" }, guildId: "guild-3" };
+
+  assert.equal(canUseRobloxUpload(second, {
+    guildId: "guild-1",
+    guildIds: "guild-2, guild-3",
+    roleId: "guild-1"
+  }), true);
+  assert.equal(canUseRobloxUpload(third, {
+    guildIds: "guild-1,guild-2",
+    roleIds: "*"
+  }), false);
+  assert.equal(canUseRobloxUpload({ ...second, member: { roles: ["role-2"] } }, {
+    guildIds: "guild-1,guild-2",
+    roleIds: "role-1,role-2"
+  }), true);
+  assert.equal(canUseRobloxUpload(first, {
+    guildIds: "guild-1,guild-2",
+    roleIds: "role-1,role-2"
+  }), false);
+});
+
 test("operation paths and asset IDs accept supported Roblox response shapes", () => {
   assert.equal(normalizeOperationPath("operations/abc"), "operations/abc");
   assert.equal(normalizeOperationPath("assets/v1/operations/abc"), "operations/abc");

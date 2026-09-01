@@ -136,12 +136,22 @@ export function createRobloxUploader(config = {}) {
 
 export function canUseRobloxUpload(interaction, config = {}) {
   const allowedGuildId = config.guildId?.trim();
-  const allowedRoleId = config.roleId?.trim();
+  const allowedGuilds = new Set([
+    allowedGuildId,
+    ...String(config.guildIds || "").split(",").map((id) => id.trim())
+  ].filter(Boolean));
+  const allowedRoles = new Set([
+    config.roleId?.trim(),
+    ...String(config.roleIds || "").split(",").map((id) => id.trim())
+  ].filter(Boolean));
   const allowedUsers = new Set(String(config.userIds || "").split(",").map((id) => id.trim()).filter(Boolean));
   if (allowedUsers.has(interaction.user.id)) return true;
-  if (allowedGuildId && interaction.guildId !== allowedGuildId) return false;
-  if (!allowedRoleId) return Boolean(allowedGuildId && interaction.guildId === allowedGuildId);
-  if (allowedGuildId && allowedRoleId === allowedGuildId && interaction.guildId === allowedGuildId) return true;
+  const guildAllowed = allowedGuilds.has(interaction.guildId);
+  if (allowedGuilds.size > 0 && !guildAllowed) return false;
+  if (allowedRoles.size === 0) return guildAllowed;
+  if (allowedRoles.has("*") || [...allowedGuilds].some((guildId) => allowedRoles.has(guildId))) {
+    return guildAllowed;
+  }
   const roles = interaction.member?.roles;
-  return Boolean(roles?.cache?.has?.(allowedRoleId) || roles?.includes?.(allowedRoleId));
+  return [...allowedRoles].some((roleId) => roles?.cache?.has?.(roleId) || roles?.includes?.(roleId));
 }
