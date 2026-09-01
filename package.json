@@ -1,6 +1,6 @@
 {
   "name": "discord-roblox-audio-bot",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "private": true,
   "type": "module",
   "description": "Discord bot that converts owned or licensed audio to Roblox-compatible OGG files.",

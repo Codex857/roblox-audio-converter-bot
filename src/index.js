@@ -31,7 +31,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.6.0";
+const BOT_VERSION = "2.6.1";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
@@ -42,9 +42,13 @@ const roblox = createRobloxUploader({
   creatorType: process.env.ROBLOX_CREATOR_TYPE,
   creatorId: process.env.ROBLOX_CREATOR_ID
 });
+const deployedUploadGuildIds = [
+  process.env.ROBLOX_UPLOAD_GUILD_IDS,
+  "1412169906140741725"
+].filter(Boolean).join(",");
 const robloxAccess = {
   guildId: process.env.ROBLOX_UPLOAD_GUILD_ID,
-  guildIds: process.env.ROBLOX_UPLOAD_GUILD_IDS,
+  guildIds: deployedUploadGuildIds,
   roleId: process.env.ROBLOX_UPLOAD_ROLE_ID,
   roleIds: process.env.ROBLOX_UPLOAD_ROLE_IDS,
   userIds: process.env.ROBLOX_UPLOAD_USER_IDS
