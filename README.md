@@ -6,6 +6,8 @@ Versi 2.5 menambah `/menu` sebagai satu pintu utama. Pengguna hanya perlu memili
 
 Versi 2.6 mendaftarkan command secara global dan menyokong allowlist beberapa server Discord tanpa membuka quota upload Roblox kepada server yang tidak diluluskan.
 
+Versi 2.7 menambah **Paste Link Audio**: bot memuat turun satu fail audio public daripada host yang disokong, mengesahkan fail, auto-edit, upload ke Roblox, kemudian memberi Asset ID, JSON dan Lua.
+
 Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload dikawal menggunakan server dan role Discord.
 
 Bot ini **bukan** alat untuk memintas copyright detection atau moderation. Menukar format tidak memberikan hak untuk memuat naik lagu orang lain dan tidak menjamin Roblox akan menerima sesuatu aset.
@@ -32,7 +34,10 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 
 Dalam Discord:
 
-- `/menu` ialah cara paling mudah dan disyorkan. Tekan **Pilih Fail Audio** untuk membuka pemilih 1–5 fail, atau **YouTube Auto Upload** untuk membuka borang link. Tandakan pengesahan hak audio dan hantar.
+- `/menu` ialah cara paling mudah dan disyorkan. Tekan **Pilih Fail Audio** untuk membuka pemilih 1–5 fail, **Paste Link Audio** untuk menampal link fail public, atau **YouTube Auto Upload** untuk membuka borang YouTube. Tandakan pengesahan hak audio dan hantar.
+- **Paste Link Audio** menyokong link public daripada Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Bot terus download, periksa, convert, normalize, upload dan memulangkan Asset ID tanpa langkah tambahan.
+- Untuk Dropbox, gunakan link share kepada satu fail. Untuk Google Drive, tetapkan akses fail kepada sesiapa yang mempunyai link. Link mestilah fail audio sebenar, bukan halaman login atau folder.
+- Jangan tampal URL halaman YouTube ke **Paste Link Audio**; gunakan pilihan **YouTube Auto Upload**. API rasmi YouTube tidak menyediakan muat turun audio.
 - `/upload` ialah cara lama untuk satu fail. `/yt` menerima link dan pengesahan hak dalam satu command, kemudian terus auto convert, edit dan upload tanpa butang kedua.
 - Jika YouTube menyekat alamat server cloud, bot tidak meminta login/cookies. Ia terus menawarkan butang upload MP3/WAV supaya pengguna boleh menyelesaikan kerja tanpa memulakan semula `/menu`.
 - `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
@@ -59,6 +64,7 @@ Untuk group, gunakan akaun automasi khusus yang mempunyai permission group minim
 ## Batas
 
 - Input: MP3, OGG, WAV, FLAC, M4A, atau AAC; maksimum 25 MB.
+- Link audio: HTTPS sahaja, satu fail public daripada Dropbox, Google Drive, Discord CDN, Cloudflare R2 atau Amazon S3.
 - Output `/roblox-audio`: OGG Vorbis, stereo, 48 kHz, nominal 160 kbps.
 - Output `/roblox-upload`: OGG Vorbis, stereo, 48 kHz, nominal 192 kbps.
 - Durasi: maksimum 7 minit.
@@ -86,3 +92,5 @@ Repository ini mengandungi `Dockerfile`, jadi Railway akan mengesan dan membina 
 Railway Hobby ialah pilihan praktikal untuk bot kecil yang perlu sentiasa hidup. Kos sebenar bergantung pada RAM, CPU ketika FFmpeg memproses audio, storage, dan network egress. Tetapkan usage alert/limit dan semak anggaran selepas seminggu operasi.
 
 Fail audio kerja disimpan sementara dalam direktori sistem dan dipadam selepas setiap job. Volume kekal tidak diperlukan untuk operasi bot semasa.
+
+Link audio diperiksa semula pada setiap redirect, dihadkan kepada empat redirect dan 25 MB, serta ditolak jika menuju ke alamat IP/rangkaian dalaman atau memulangkan HTML/JSON/XML. Query link tidak ditulis ke log bot. Pemeriksaan FFprobe tetap dijalankan sebelum FFmpeg dan upload Roblox.

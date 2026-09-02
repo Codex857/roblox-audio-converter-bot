@@ -1,19 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
   youtubeFallbackComponents,
   youtubeUploadModal
 } from "../src/menu.js";
 
-test("main menu offers file, YouTube and help buttons", () => {
+test("main menu offers file, direct link, YouTube and help buttons", () => {
   const rows = mainMenuComponents().map((row) => row.toJSON());
   assert.deepEqual(rows[0].components.map((component) => component.custom_id), [
     "music-menu:file",
+    "music-menu:audio-link",
     "music-menu:youtube",
     "music-menu:help"
   ]);
+});
+
+test("direct audio modal contains a link field and rights confirmation", () => {
+  const modal = directAudioUploadModal().toJSON();
+  assert.equal(modal.custom_id, "music-menu:audio-link-modal");
+  assert.equal(modal.components[0].component.type, 4);
+  assert.equal(modal.components[0].component.custom_id, "audio_link");
+  assert.equal(modal.components[1].component.type, 23);
+  assert.equal(modal.components[1].component.custom_id, "rights_confirm");
 });
 
 test("blocked YouTube flow offers an immediate file upload fallback", () => {

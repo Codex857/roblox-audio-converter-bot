@@ -16,6 +16,7 @@ import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
 import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
 import {
+  directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
   youtubeFallbackComponents,
@@ -24,6 +25,7 @@ import {
 import { startServer } from "./server.js";
 import { buildUploadExports } from "./upload-results.js";
 import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
+import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
   assetDisplayName,
@@ -36,7 +38,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.6.3";
+const BOT_VERSION = "2.7.0";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
@@ -86,7 +88,7 @@ void checkYouTubeTool(ytDlpPath)
   });
 
 function jobFileCount(job) {
-  return job.attachments?.length || (job.youtube ? 1 : 0);
+  return job.attachments?.length || (job.youtube || job.directAudio ? 1 : 0);
 }
 
 function pendingFileCount() {
@@ -275,6 +277,45 @@ async function processUploadJob({ interaction, attachments, upload }) {
   await replyWithUploadResults(interaction, results);
 }
 
+async function processDirectAudioUploadJob({ interaction, directAudio }) {
+  let workDir;
+  let displayName = "Audio Link";
+
+  try {
+    await editStatus(interaction, "🌐 Membaca link dan memuat turun fail audio…");
+    workDir = await mkdtemp(join(tmpdir(), "roblox-direct-audio-"));
+    const source = await downloadDirectAudio({ url: directAudio.url, directory: workDir });
+    displayName = assetDisplayName(source.name);
+    const outputName = `${safeBaseName(source.name)}-roblox.ogg`;
+    const outputPath = join(workDir, outputName);
+
+    await editStatus(interaction, `🔎 Memeriksa **${safeDiscordText(displayName)}**…`);
+    await inspectAudio(ffprobeStatic.path, source.path);
+    await editStatus(interaction, `🎛️ Mengedit **${safeDiscordText(displayName)}** dengan tetapan Roblox…`);
+    await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: true });
+    await inspectConvertedAudio(ffprobeStatic.path, outputPath);
+
+    await editStatus(interaction, `☁️ Upload **${safeDiscordText(displayName)}** ke Roblox…`);
+    const operationPath = await roblox.upload({
+      filePath: outputPath,
+      fileName: outputName,
+      displayName,
+      description: "Audio from a user-confirmed licensed direct source"
+    });
+    await editStatus(interaction, "⏳ Roblox sedang memproses audio…");
+    const assetId = await roblox.waitForAsset(operationPath);
+    await replyWithUploadResults(interaction, [{ index: 1, name: displayName, assetId }]);
+  } catch (error) {
+    await replyWithUploadResults(interaction, [{
+      index: 1,
+      name: displayName,
+      error: errorMessage(error)
+    }]);
+  } finally {
+    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function processYouTubeUploadJob({ interaction, youtube }) {
   let workDir;
   let displayName = "YouTube Audio";
@@ -335,6 +376,7 @@ async function processYouTubeUploadJob({ interaction, youtube }) {
 
 async function processAudioJob(job) {
   if (job.youtube) await processYouTubeUploadJob(job);
+  else if (job.directAudio) await processDirectAudioUploadJob(job);
   else if (job.upload) await processUploadJob(job);
   else await processConversionJob(job);
 }
@@ -532,10 +574,11 @@ async function handleMenuButton(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna menu audio Roblox**",
-        "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, atau **YouTube Auto Upload** untuk menampal satu link video public.",
+        "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
         "2. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
         "3. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
+        "Link audio menyokong Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Link YouTube mesti menggunakan pilihan YouTube.",
         "Semua upload masih melalui moderation Roblox. Playlist, live, video private dan DRM tidak disokong."
       ].join("\n"),
       flags: MessageFlags.Ephemeral,
@@ -544,7 +587,7 @@ async function handleMenuButton(interaction) {
     return true;
   }
 
-  if (!["music-menu:file", "music-menu:youtube"].includes(interaction.customId)) return true;
+  if (!["music-menu:file", "music-menu:audio-link", "music-menu:youtube"].includes(interaction.customId)) return true;
   if (!roblox.configured) {
     await interaction.reply({
       content: "❌ Roblox Open Cloud belum dikonfigurasi oleh pemilik bot.",
@@ -567,14 +610,21 @@ async function handleMenuButton(interaction) {
     return true;
   }
 
-  await interaction.showModal(
-    interaction.customId === "music-menu:file" ? fileUploadModal() : youtubeUploadModal()
-  );
+  const modals = {
+    "music-menu:file": fileUploadModal,
+    "music-menu:audio-link": directAudioUploadModal,
+    "music-menu:youtube": youtubeUploadModal
+  };
+  await interaction.showModal(modals[interaction.customId]());
   return true;
 }
 
 async function handleMenuModal(interaction) {
-  if (!["music-menu:file-modal", "music-menu:youtube-modal"].includes(interaction.customId)) return false;
+  if (![
+    "music-menu:file-modal",
+    "music-menu:audio-link-modal",
+    "music-menu:youtube-modal"
+  ].includes(interaction.customId)) return false;
 
   if (!roblox.configured) {
     await interaction.reply({
@@ -621,6 +671,20 @@ async function handleMenuModal(interaction) {
     return true;
   }
 
+  if (interaction.customId === "music-menu:audio-link-modal") {
+    let url;
+    try {
+      url = normalizeDirectAudioUrl(interaction.fields.getTextInputValue("audio_link"));
+    } catch (error) {
+      await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+      return true;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await enqueueJob({ interaction, directAudio: { url } });
+    return true;
+  }
+
   if (!youtubeReady) {
     await interaction.reply({
       content: "❌ Downloader YouTube belum tersedia. Cuba lagi selepas bot selesai bermula.",
@@ -659,7 +723,7 @@ async function handleInteraction(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Menu Audio Roblox**",
-        "Pilih cara upload di bawah. YouTube akan terus auto convert, edit dan upload selepas borang dihantar."
+        "Pilih fail, paste link audio public, atau gunakan YouTube. Bot terus convert, edit dan upload selepas borang dihantar."
       ].join("\n"),
       components: mainMenuComponents(),
       flags: MessageFlags.Ephemeral,
@@ -682,10 +746,10 @@ async function handleInteraction(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna bot audio Roblox**",
-        "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio** atau **YouTube Auto Upload**.",
+        "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio**, **Paste Link Audio** atau **YouTube Auto Upload**.",
         "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
         "",
-        "Menu menyokong 1–5 fail sekali atau satu link video YouTube public.",
+        "Menu menyokong 1–5 fail, satu link fail audio public, atau satu link video YouTube public.",
         "Tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
         "Arahan lama `/upload`, `/yt` dan `/roblox-upload` masih boleh digunakan.",

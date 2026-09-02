@@ -18,6 +18,11 @@ export function mainMenuComponents() {
       .setEmoji("📁")
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
+      .setCustomId("music-menu:audio-link")
+      .setLabel("Paste Link Audio")
+      .setEmoji("🌐")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
       .setCustomId("music-menu:youtube")
       .setLabel("YouTube Auto Upload")
       .setEmoji("🔗")
@@ -82,6 +87,26 @@ export function youtubeUploadModal() {
             .setStyle(TextInputStyle.Short)
             .setPlaceholder("https://www.youtube.com/watch?v=...")
             .setMaxLength(300)
+            .setRequired(true)
+        ),
+      rightsLabel()
+    );
+}
+
+export function directAudioUploadModal() {
+  return new ModalBuilder()
+    .setCustomId("music-menu:audio-link-modal")
+    .setTitle("Paste Link Audio")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Link terus ke fail audio public")
+        .setDescription("Dropbox, Google Drive, Discord CDN, R2 atau S3")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("audio_link")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("https://.../lagu.mp3")
+            .setMaxLength(1000)
             .setRequired(true)
         ),
       rightsLabel()
