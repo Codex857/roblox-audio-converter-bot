@@ -30,6 +30,16 @@ export function mainMenuComponents() {
   )];
 }
 
+export function youtubeFallbackComponents() {
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("music-menu:file")
+      .setLabel("Upload MP3/WAV Sekarang")
+      .setEmoji("📁")
+      .setStyle(ButtonStyle.Primary)
+  )];
+}
+
 function rightsLabel() {
   return new LabelBuilder()
     .setLabel("Pengesahan hak audio")

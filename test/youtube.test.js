@@ -17,7 +17,7 @@ test("YouTube validation rejects playlists, redirects and unrelated hosts", () =
 });
 
 test("YouTube downloader errors are safe and useful", () => {
-  assert.match(friendlyYouTubeError({ stderr: "Sign in to confirm you're not a bot" }), /Railway/);
+  assert.match(friendlyYouTubeError({ stderr: "Sign in to confirm you're not a bot" }), /server cloud/);
   assert.match(friendlyYouTubeError({ stderr: "Private video" }), /public/);
   assert.doesNotMatch(friendlyYouTubeError({ stderr: "secret internal detail" }), /secret internal detail/);
 });

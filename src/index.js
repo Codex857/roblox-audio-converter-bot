@@ -15,7 +15,12 @@ import {
 import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
 import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
-import { fileUploadModal, mainMenuComponents, youtubeUploadModal } from "./menu.js";
+import {
+  fileUploadModal,
+  mainMenuComponents,
+  youtubeFallbackComponents,
+  youtubeUploadModal
+} from "./menu.js";
 import { startServer } from "./server.js";
 import { buildUploadExports } from "./upload-results.js";
 import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
@@ -31,7 +36,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.6.2";
+const BOT_VERSION = "2.6.3";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
@@ -304,10 +309,24 @@ async function processYouTubeUploadJob({ interaction, youtube }) {
     const assetId = await roblox.waitForAsset(operationPath);
     await replyWithUploadResults(interaction, [{ index: 1, name: displayName, assetId }]);
   } catch (error) {
+    const message = errorMessage(error);
+    if (/YouTube meminta login|menyekat alamat server cloud/i.test(message)) {
+      await interaction.editReply({
+        content: [
+          "⚠️ **YouTube menyekat permintaan server cloud.**",
+          "Bot tidak akan meminta login atau cookies anda.",
+          "Tekan butang di bawah dan pilih MP3/WAV asal; bot akan terus auto-edit dan upload ke Roblox."
+        ].join("\n"),
+        files: [],
+        components: youtubeFallbackComponents(),
+        allowedMentions: { parse: [] }
+      });
+      return;
+    }
     await replyWithUploadResults(interaction, [{
       index: 1,
       name: displayName,
-      error: errorMessage(error)
+      error: message
     }]);
   } finally {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});

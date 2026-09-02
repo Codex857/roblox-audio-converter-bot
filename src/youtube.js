@@ -45,6 +45,8 @@ function baseArgs() {
     "--no-playlist",
     "--no-warnings",
     "--no-progress",
+    "--extractor-retries", "3",
+    "--retry-sleep", "extractor:1",
     "--js-runtimes", "node"
   ];
 }
@@ -55,7 +57,7 @@ export function friendlyYouTubeError(error) {
     return "Downloader YouTube belum dipasang pada server.";
   }
   if (/sign in to confirm|cookies/i.test(detail)) {
-    return "YouTube meminta login atau menyekat alamat server Railway. Cuba video public yang lain.";
+    return "YouTube meminta login atau menyekat alamat server cloud.";
   }
   if (/private video|members-only|video unavailable/i.test(detail)) {
     return "Video YouTube tidak tersedia secara public.";

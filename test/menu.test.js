@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fileUploadModal, mainMenuComponents, youtubeUploadModal } from "../src/menu.js";
+import {
+  fileUploadModal,
+  mainMenuComponents,
+  youtubeFallbackComponents,
+  youtubeUploadModal
+} from "../src/menu.js";
 
 test("main menu offers file, YouTube and help buttons", () => {
   const rows = mainMenuComponents().map((row) => row.toJSON());
@@ -9,6 +14,13 @@ test("main menu offers file, YouTube and help buttons", () => {
     "music-menu:youtube",
     "music-menu:help"
   ]);
+});
+
+test("blocked YouTube flow offers an immediate file upload fallback", () => {
+  const rows = youtubeFallbackComponents().map((row) => row.toJSON());
+  assert.equal(rows[0].components.length, 1);
+  assert.equal(rows[0].components[0].custom_id, "music-menu:file");
+  assert.equal(rows[0].components[0].label, "Upload MP3/WAV Sekarang");
 });
 
 test("file modal accepts up to five files and requires rights confirmation", () => {

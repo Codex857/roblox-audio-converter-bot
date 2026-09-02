@@ -34,6 +34,7 @@ Dalam Discord:
 
 - `/menu` ialah cara paling mudah dan disyorkan. Tekan **Pilih Fail Audio** untuk membuka pemilih 1–5 fail, atau **YouTube Auto Upload** untuk membuka borang link. Tandakan pengesahan hak audio dan hantar.
 - `/upload` ialah cara lama untuk satu fail. `/yt` menerima link dan pengesahan hak dalam satu command, kemudian terus auto convert, edit dan upload tanpa butang kedua.
+- Jika YouTube menyekat alamat server cloud, bot tidak meminta login/cookies. Ia terus menawarkan butang upload MP3/WAV supaya pengguna boleh menyelesaikan kerja tanpa memulakan semula `/menu`.
 - `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
 - `/roblox-upload` menerima 1 hingga 5 fail dan pengesahan hak audio. Bot menggunakan OGG high quality 192 kbps dan loudness normalization −14 LUFS / −1.5 dB true peak seperti aplikasi GUI, upload satu demi satu melalui Open Cloud, kemudian memberi Asset ID serta fail `asset_ids.json` dan `sounds.lua`.
 - `/roblox-help` menunjukkan panduan ringkas secara private dalam Discord.
