@@ -812,7 +812,12 @@ async function handleMenuButton(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna menu audio Roblox**",
-        "Admin server baru: set dahulu creator Roblox dengan `/roblox-server set`.",
+        "**Developer/admin server:**",
+        "1. Set creator Roblox server: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
+        "2. Check setup: `/roblox-server status`.",
+        "3. Pastikan user yang upload sudah connect Roblox dan ada permission upload ke creator itu.",
+        "",
+        "**User biasa:**",
         "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
         "2. User tekan **Akaun Roblox** untuk connect akaun Roblox sendiri.",
         "3. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
@@ -983,13 +988,20 @@ async function handleInteraction(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna bot audio Roblox**",
+        "**Untuk developer/admin server:**",
+        "1. Selepas invite bot, set destinasi Roblox: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
+        "2. Guna `creator_type:User` kalau mahu upload ke user creator, bukan group.",
+        "3. Guna `/roblox-server status` untuk confirm ID betul sebelum user upload.",
+        "4. User yang upload mesti `/roblox-account` dan akaun Roblox itu mesti ada permission upload ke creator tersebut.",
+        "5. Guna `/roblox-server clear` kalau tersalah set ID dan mahu sekat upload sementara.",
+        "",
+        "**Untuk user biasa:**",
         "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio**, **Paste Link Audio** atau **YouTube Auto Upload**.",
-        "Untuk server baru, admin mesti set creator Roblox dahulu dengan `/roblox-server set creator_type:Group creator_id:ID_GROUP`.",
-        "Setiap user pula guna `/roblox-account` untuk connect Roblox sendiri.",
+        "Tekan **Akaun Roblox** atau guna `/roblox-account` untuk connect Roblox sendiri.",
         "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
         "",
         "Menu menyokong 1–5 fail, satu link fail audio public, atau satu link video YouTube public.",
-        "Tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "Pilih speed `1x`, `1.5x` atau `2x`, kemudian tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
         "Arahan lama `/upload`, `/yt` dan `/roblox-upload` masih boleh digunakan.",
         "Gunakan audio yang anda miliki atau mempunyai lesen. Semua upload tetap melalui moderation Roblox."
