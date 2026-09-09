@@ -1,5 +1,16 @@
 import { SlashCommandBuilder } from "discord.js";
 
+function speedOption(option) {
+  return option
+    .setName("speed")
+    .setDescription("Kelajuan audio; 1x ialah normal")
+    .addChoices(
+      { name: "1x — Normal", value: "1" },
+      { name: "1.5x — Lebih laju", value: "1.5" },
+      { name: "2x — Dua kali laju", value: "2" }
+    );
+}
+
 export const robloxAudioCommand = new SlashCommandBuilder()
   .setName("roblox-audio")
   .setDescription("Tukar audio milik anda kepada OGG yang sesuai untuk Roblox")
@@ -20,7 +31,8 @@ export const robloxAudioCommand = new SlashCommandBuilder()
     option
       .setName("normalize")
       .setDescription("Samakan loudness; biarkan off untuk mengekalkan mix asal")
-  );
+  )
+  .addStringOption(speedOption);
 
 export const robloxUploadCommand = new SlashCommandBuilder()
   .setName("roblox-upload")
@@ -48,7 +60,8 @@ export const robloxUploadCommand = new SlashCommandBuilder()
   )
   .addStringOption((option) =>
     option.setName("description").setDescription("Penerangan aset dan sumber lesen").setMaxLength(1000)
-  );
+  )
+  .addStringOption(speedOption);
 
 export const robloxHelpCommand = new SlashCommandBuilder()
   .setName("roblox-help")
@@ -59,7 +72,8 @@ export const quickUploadCommand = new SlashCommandBuilder()
   .setDescription("Cara mudah: pilih satu lagu dan tekan butang upload")
   .addAttachmentOption((option) =>
     option.setName("file").setDescription("Pilih fail lagu anda").setRequired(true)
-  );
+  )
+  .addStringOption(speedOption);
 
 export const youtubeUploadCommand = new SlashCommandBuilder()
   .setName("yt")
@@ -72,14 +86,20 @@ export const youtubeUploadCommand = new SlashCommandBuilder()
       .setName("rights_confirm")
       .setDescription("Saya memiliki atau mempunyai lesen untuk audio ini")
       .setRequired(true)
-  );
+  )
+  .addStringOption(speedOption);
 
 export const menuCommand = new SlashCommandBuilder()
   .setName("menu")
   .setDescription("Buka menu paling mudah untuk upload audio atau link YouTube");
 
+export const robloxAccountCommand = new SlashCommandBuilder()
+  .setName("roblox-account")
+  .setDescription("Sambung atau putuskan akaun Roblox peribadi dengan selamat");
+
 export const allCommands = [
   menuCommand,
+  robloxAccountCommand,
   quickUploadCommand,
   youtubeUploadCommand,
   robloxUploadCommand,

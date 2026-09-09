@@ -9,9 +9,11 @@ import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
 import {
   assetDisplayName,
+  audioFilterForOptions,
   bitrateForQuality,
   convertAudio,
   inspectConvertedAudio,
+  normalizeAudioSpeed,
   safeBaseName,
   validateAttachment
 } from "../src/audio.js";
@@ -46,6 +48,15 @@ test("bitrateForQuality maps supported presets", () => {
   assert.throws(() => bitrateForQuality("extreme"), /kualiti tidak sah/);
 });
 
+test("speed options are normalized and included in the audio filter", () => {
+  assert.equal(normalizeAudioSpeed("1"), 1);
+  assert.equal(normalizeAudioSpeed("1.5"), 1.5);
+  assert.equal(normalizeAudioSpeed("2"), 2);
+  assert.throws(() => normalizeAudioSpeed("1.25"), /Kelajuan audio/);
+  assert.match(audioFilterForOptions({ speed: 1.5, normalize: true }), /atempo=1\.5/);
+  assert.doesNotMatch(audioFilterForOptions({ speed: 1, normalize: true }), /atempo=/);
+});
+
 test("assetDisplayName keeps readable Unicode names", () => {
   assert.equal(assetDisplayName("Lagu_Baru-Final.mp3"), "Lagu Baru Final");
   assert.equal(assetDisplayName("音乐_akhir.ogg"), "音乐 akhir");
@@ -62,7 +73,7 @@ test("converted output is verified as Roblox-compatible OGG", async () => {
       "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.25",
       "-ar", "44100", "-ac", "1", input
     ]);
-    await convertAudio(ffmpegPath, input, output, { quality: "high", normalize: true });
+    await convertAudio(ffmpegPath, input, output, { quality: "high", normalize: true, speed: 2 });
     const info = await inspectConvertedAudio(ffprobeStatic.path, output);
     assert.equal(info.codec, "vorbis");
     assert.equal(info.sampleRate, 48000);

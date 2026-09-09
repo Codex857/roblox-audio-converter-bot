@@ -26,8 +26,8 @@ function apiErrorDetail(body) {
 export function robloxApiError(status, body = {}) {
   const friendly = {
     400: "Roblox menolak permintaan atau fail audio tidak sah (400).",
-    401: "Roblox menolak API key; key mungkin tidak sah atau tamat tempoh (401).",
-    403: "API key tiada asset:write atau creator permission (403).",
+    401: "Roblox menolak akses; API key/token mungkin tidak sah atau tamat tempoh (401).",
+    403: "Akses Roblox tiada asset:write atau creator permission (403).",
     404: "Endpoint atau operasi upload Roblox tidak ditemui (404).",
     409: "Roblox menolak upload kerana konflik (409).",
     413: "Fail audio terlalu besar untuk Roblox (413).",
@@ -60,16 +60,20 @@ function requestFailure(message, retryable = false) {
 
 export function createRobloxUploader(config = {}) {
   const apiKey = config.apiKey?.trim();
+  const accessTokenProvider = typeof config.accessTokenProvider === "function" ? config.accessTokenProvider : null;
   const creatorType = config.creatorType?.trim();
   const creatorId = config.creatorId?.trim();
-  const configured = Boolean(apiKey && ["User", "Group"].includes(creatorType) && /^\d+$/.test(creatorId || ""));
+  const configured = Boolean((apiKey || accessTokenProvider) && ["User", "Group"].includes(creatorType) && /^\d+$/.test(creatorId || ""));
 
   async function request(path, options = {}) {
     let response;
     try {
+      const authHeaders = apiKey
+        ? { "x-api-key": apiKey }
+        : { authorization: `Bearer ${await accessTokenProvider()}` };
       response = await fetch(`${ASSETS_API}/${normalizeOperationPath(path)}`, {
         ...options,
-        headers: { "x-api-key": apiKey, ...(options.headers || {}) },
+        headers: { ...authHeaders, ...(options.headers || {}) },
         signal: AbortSignal.timeout(options.timeout || 120_000)
       });
     } catch (error) {

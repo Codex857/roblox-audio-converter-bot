@@ -36,7 +36,8 @@ test("quick upload only asks for one required file", () => {
   const quick = allCommands.map((item) => item.toJSON()).find((command) => command.name === "upload");
   assert.ok(quick);
   assert.deepEqual(quick.options.map((option) => ({ name: option.name, required: option.required })), [
-    { name: "file", required: true }
+    { name: "file", required: true },
+    { name: "speed", required: false }
   ]);
 });
 
@@ -45,6 +46,21 @@ test("YouTube upload asks once for the link and rights confirmation", () => {
   assert.ok(youtube);
   assert.deepEqual(youtube.options.map((option) => ({ name: option.name, required: option.required })), [
     { name: "link", required: true },
-    { name: "rights_confirm", required: true }
+    { name: "rights_confirm", required: true },
+    { name: "speed", required: false }
   ]);
+});
+
+test("Roblox account command is available without options", () => {
+  const account = allCommands.map((item) => item.toJSON()).find((command) => command.name === "roblox-account");
+  assert.ok(account);
+  assert.deepEqual(account.options || [], []);
+});
+
+test("upload commands expose supported speed choices", () => {
+  for (const name of ["upload", "yt", "roblox-upload", "roblox-audio"]) {
+    const command = allCommands.map((item) => item.toJSON()).find((item) => item.name === name);
+    const speed = command.options.find((option) => option.name === "speed");
+    assert.deepEqual(speed.choices.map((choice) => choice.value), ["1", "1.5", "2"]);
+  }
 });

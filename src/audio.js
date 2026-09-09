@@ -13,11 +13,28 @@ const QUALITY_BITRATES = Object.freeze({
   standard: "160k",
   high: "192k"
 });
+const AUDIO_SPEEDS = new Set([1, 1.5, 2]);
 
 export function bitrateForQuality(quality = "standard") {
   const bitrate = QUALITY_BITRATES[quality];
   if (!bitrate) throw new Error("Pilihan kualiti tidak sah.");
   return bitrate;
+}
+
+export function normalizeAudioSpeed(value = 1) {
+  const speed = Number(value);
+  if (!AUDIO_SPEEDS.has(speed)) throw new Error("Kelajuan audio mesti 1x, 1.5x atau 2x.");
+  return speed;
+}
+
+export function audioFilterForOptions(options = {}) {
+  const speed = normalizeAudioSpeed(options.speed ?? 1);
+  const filters = ["aresample=48000"];
+  if (speed !== 1) filters.push(`atempo=${speed}`);
+  filters.push(options.normalize === true
+    ? "loudnorm=I=-14:TP=-1.5:LRA=11"
+    : "alimiter=limit=0.95:attack=5:release=50");
+  return filters.join(",");
 }
 
 export function validateAttachment(attachment) {
@@ -70,7 +87,7 @@ export async function downloadAttachment(attachment, destination) {
   await pipeline(Readable.fromWeb(response.body), sizeGuard, createWriteStream(destination));
 }
 
-export async function inspectAudio(ffprobePath, inputPath) {
+export async function inspectAudio(ffprobePath, inputPath, options = {}) {
   const { stdout } = await execFileAsync(
     ffprobePath,
     ["-v", "error", "-show_entries", "format=duration", "-of", "json", inputPath],
@@ -81,8 +98,9 @@ export async function inspectAudio(ffprobePath, inputPath) {
   if (!Number.isFinite(duration) || duration <= 0) {
     throw new Error("Audio tidak sah atau durasinya tidak dapat dibaca.");
   }
-  if (duration > ROBLOX_MAX_SECONDS) {
-    throw new Error("Audio melebihi had Roblox 7 minit.");
+  const speed = normalizeAudioSpeed(options.speed ?? 1);
+  if (duration / speed > ROBLOX_MAX_SECONDS) {
+    throw new Error("Audio masih melebihi had Roblox 7 minit selepas kelajuan dipilih.");
   }
 
   return { duration };
@@ -127,9 +145,7 @@ export async function convertAudio(ffmpegPath, inputPath, outputPath, options = 
   const bitrate = bitrateForQuality(quality);
   // Preserve mode only resamples and catches peaks. Loudness normalization is
   // opt-in because it deliberately changes the dynamics of the original mix.
-  const audioFilter = normalize
-    ? "aresample=48000,loudnorm=I=-14:TP=-1.5:LRA=11"
-    : "aresample=48000,alimiter=limit=0.95:attack=5:release=50";
+  const audioFilter = audioFilterForOptions({ normalize, speed: options.speed });
   const args = [
     "-hide_banner", "-loglevel", "error", "-y", "-i", inputPath,
     "-map", "0:a:0", "-vn", "-sn", "-dn",

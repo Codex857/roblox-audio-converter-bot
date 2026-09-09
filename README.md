@@ -8,7 +8,9 @@ Versi 2.6 mendaftarkan command secara global dan menyokong allowlist beberapa se
 
 Versi 2.7 menambah **Paste Link Audio**: bot memuat turun satu fail audio public daripada host yang disokong, mengesahkan fail, auto-edit, upload ke Roblox, kemudian memberi Asset ID, JSON dan Lua.
 
-Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload dikawal menggunakan server dan role Discord.
+Versi 2.8 menambah pilihan speed `1x`, `1.5x` dan `2x`, serta `/roblox-account` untuk sambungan Roblox per pengguna melalui OAuth rasmi. Jika user biasa connect Roblox, upload akan masuk ke akaun Roblox user itu sendiri, bukan community/group default bot.
+
+Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload default pemilik masih dikawal menggunakan server dan role Discord.
 
 Bot ini **bukan** alat untuk memintas copyright detection atau moderation. Menukar format tidak memberikan hak untuk memuat naik lagu orang lain dan tidak menjamin Roblox akan menerima sesuatu aset.
 
@@ -35,6 +37,8 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 Dalam Discord:
 
 - `/menu` ialah cara paling mudah dan disyorkan. Tekan **Pilih Fail Audio** untuk membuka pemilih 1–5 fail, **Paste Link Audio** untuk menampal link fail public, atau **YouTube Auto Upload** untuk membuka borang YouTube. Tandakan pengesahan hak audio dan hantar.
+- Tekan **Akaun Roblox** atau guna `/roblox-account` untuk connect/disconnect akaun Roblox anda. Selepas connect, upload anda akan masuk ke akaun Roblox sendiri.
+- Setiap flow convert/upload boleh pilih speed `1x`, `1.5x` atau `2x`. Pitch tidak dinaikkan; bot menggunakan perubahan tempo audio.
 - **Paste Link Audio** menyokong link public daripada Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Bot terus download, periksa, convert, normalize, upload dan memulangkan Asset ID tanpa langkah tambahan.
 - Untuk Dropbox, gunakan link share kepada satu fail. Untuk Google Drive, tetapkan akses fail kepada sesiapa yang mempunyai link. Link mestilah fail audio sebenar, bukan halaman login atau folder.
 - Jangan tampal URL halaman YouTube ke **Paste Link Audio**; gunakan pilihan **YouTube Auto Upload**. API rasmi YouTube tidak menyediakan muat turun audio.
@@ -58,8 +62,20 @@ Tetapkan secrets berikut pada host, bukan dalam GitHub atau mesej Discord:
 - `ROBLOX_UPLOAD_GUILD_IDS` — beberapa ID server tambahan, dipisahkan dengan koma.
 - `ROBLOX_UPLOAD_ROLE_ID` — ID role Discord yang boleh menggunakan `/roblox-upload`. Gunakan ID server/guild yang sama untuk membenarkan role `@everyone`.
 - `ROBLOX_UPLOAD_ROLE_IDS` — beberapa ID role tambahan; gunakan `*` untuk semua role dalam server yang sudah dibenarkan.
+- `ROBLOX_DEFAULT_USER_IDS` — Discord user ID pemilik/operator yang masih boleh upload ke creator default. Bot juga cuba auto-detect owner Discord application.
 
 Untuk group, gunakan akaun automasi khusus yang mempunyai permission group minimum yang diperlukan. Hadkan API key kepada permission dan IP sekecil yang praktikal, putar key jika terdedah, dan jangan gunakan tetapan IP terbuka melainkan host anda memerlukannya.
+
+### Konfigurasi Roblox OAuth per pengguna
+
+Untuk bot public, gunakan OAuth rasmi Roblox supaya user tidak perlu memberi API key kepada bot:
+
+- Cipta Roblox OAuth app dengan redirect URL `https://DOMAIN-BOT/oauth/roblox/callback`.
+- Scope yang diperlukan: `openid`, `profile`, `asset:read`, `asset:write`.
+- Set Railway variables `ROBLOX_OAUTH_CLIENT_ID`, `ROBLOX_OAUTH_CLIENT_SECRET` dan jika perlu `ROBLOX_OAUTH_REDIRECT_URI`.
+- Set `DATA_DIR=/app/data` dan pasang Railway volume ke `/app/data`, supaya token OAuth user kekal selepas deploy/restart.
+
+Token OAuth disimpan terenkripsi dalam `DATA_DIR`. Jika client secret OAuth ditukar, user perlu connect semula.
 
 ## Batas
 
@@ -68,7 +84,8 @@ Untuk group, gunakan akaun automasi khusus yang mempunyai permission group minim
 - Output `/roblox-audio`: OGG Vorbis, stereo, 48 kHz, nominal 160 kbps.
 - Output `/roblox-upload`: OGG Vorbis, stereo, 48 kHz, nominal 192 kbps.
 - Durasi: maksimum 7 minit.
-- Batch upload: maksimum 5 lagu bagi command; maksimum 10 fail aktif/menunggu.
+- Durasi selepas speed dipilih: maksimum 7 minit. Contoh, audio 10 minit pada speed `2x` menjadi lebih kurang 5 minit.
+- Batch upload: maksimum 5 lagu bagi command; maksimum 10 fail aktif/menunggu dan maksimum 5 fail menunggu bagi setiap user.
 - Satu conversion/upload berjalan pada satu masa untuk mengelakkan server kecil kehabisan CPU/RAM.
 
 Had format, saiz dan durasi dirujuk daripada dokumentasi rasmi [Roblox Audio Assets](https://create.roblox.com/docs/audio/assets) dan [Open Cloud Assets](https://create.roblox.com/docs/cloud/guides/usage-assets).
@@ -86,11 +103,12 @@ Repository ini mengandungi `Dockerfile`, jadi Railway akan mengesan dan membina 
 3. Tambah variables `DISCORD_TOKEN` dan `DISCORD_CLIENT_ID`. Jangan upload fail `.env`.
 4. Gunakan region Asia yang paling dekat dengan pengguna anda jika tersedia.
 5. Dalam Service Settings, tetapkan Restart Policy kepada **Always**.
-6. Deploy dan pastikan log menunjukkan `Bot aktif sebagai ...`.
-7. Jalankan `npm run register:global` secara lokal setiap kali bentuk slash command berubah.
+6. Jika guna OAuth per pengguna, tambah Railway volume pada `/app/data`.
+7. Deploy dan pastikan log menunjukkan `Bot aktif sebagai ...`.
+8. Jalankan `npm run register:global` secara lokal setiap kali bentuk slash command berubah.
 
 Railway Hobby ialah pilihan praktikal untuk bot kecil yang perlu sentiasa hidup. Kos sebenar bergantung pada RAM, CPU ketika FFmpeg memproses audio, storage, dan network egress. Tetapkan usage alert/limit dan semak anggaran selepas seminggu operasi.
 
-Fail audio kerja disimpan sementara dalam direktori sistem dan dipadam selepas setiap job. Volume kekal tidak diperlukan untuk operasi bot semasa.
+Fail audio kerja disimpan sementara dalam direktori sistem dan dipadam selepas setiap job. Volume kekal hanya diperlukan jika anda mengaktifkan Roblox OAuth per pengguna.
 
 Link audio diperiksa semula pada setiap redirect, dihadkan kepada empat redirect dan 25 MB, serta ditolak jika menuju ke alamat IP/rangkaian dalaman atau memulangkan HTML/JSON/XML. Query link tidak ditulis ke log bot. Pemeriksaan FFprobe tetap dijalankan sebelum FFmpeg dan upload Roblox.

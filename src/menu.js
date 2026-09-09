@@ -6,6 +6,8 @@ import {
   FileUploadBuilder,
   LabelBuilder,
   ModalBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   TextInputBuilder,
   TextInputStyle
 } from "discord.js";
@@ -31,6 +33,11 @@ export function mainMenuComponents() {
       .setCustomId("music-menu:help")
       .setLabel("Bantuan")
       .setEmoji("❓")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("music-menu:account")
+      .setLabel("Akaun Roblox")
+      .setEmoji("👤")
       .setStyle(ButtonStyle.Secondary)
   )];
 }
@@ -54,6 +61,26 @@ function rightsLabel() {
     );
 }
 
+function speedLabel() {
+  return new LabelBuilder()
+    .setLabel("Kelajuan audio")
+    .setDescription("1x normal; 1.5x atau 2x mempercepat tanpa menaikkan pitch")
+    .setStringSelectMenuComponent(
+      new StringSelectMenuBuilder()
+        .setCustomId("audio_speed")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(
+          new StringSelectMenuOptionBuilder()
+            .setLabel("1x — Normal")
+            .setValue("1")
+            .setDefault(true),
+          new StringSelectMenuOptionBuilder().setLabel("1.5x — Lebih laju").setValue("1.5"),
+          new StringSelectMenuOptionBuilder().setLabel("2x — Dua kali laju").setValue("2")
+        )
+    );
+}
+
 export function fileUploadModal() {
   return new ModalBuilder()
     .setCustomId("music-menu:file-modal")
@@ -69,6 +96,7 @@ export function fileUploadModal() {
             .setMaxValues(5)
             .setRequired(true)
         ),
+      speedLabel(),
       rightsLabel()
     );
 }
@@ -89,6 +117,7 @@ export function youtubeUploadModal() {
             .setMaxLength(300)
             .setRequired(true)
         ),
+      speedLabel(),
       rightsLabel()
     );
 }
@@ -109,6 +138,7 @@ export function directAudioUploadModal() {
             .setMaxLength(1000)
             .setRequired(true)
         ),
+      speedLabel(),
       rightsLabel()
     );
 }

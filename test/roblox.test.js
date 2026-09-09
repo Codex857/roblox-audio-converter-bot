@@ -11,6 +11,7 @@ import {
 test("Roblox uploader stays disabled without all credentials", () => {
   assert.equal(createRobloxUploader({}).configured, false);
   assert.equal(createRobloxUploader({ apiKey: "secret", creatorType: "Group", creatorId: "123" }).configured, true);
+  assert.equal(createRobloxUploader({ accessTokenProvider: () => "token", creatorType: "User", creatorId: "123" }).configured, true);
   assert.equal(createRobloxUploader({ apiKey: "secret", creatorType: "Invalid", creatorId: "123" }).configured, false);
 });
 
@@ -87,6 +88,30 @@ test("asset polling retries a temporary Roblox failure", async () => {
     const uploader = createRobloxUploader({ apiKey: "secret", creatorType: "Group", creatorId: "123" });
     assert.equal(await uploader.waitForAsset("operations/test", { attempts: 2, intervalMs: 0 }), "789");
     assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OAuth uploader uses a Bearer token for Roblox requests", async () => {
+  const originalFetch = globalThis.fetch;
+  let authHeader = "";
+  globalThis.fetch = async (_url, options) => {
+    authHeader = options.headers.authorization;
+    return new Response(JSON.stringify({ done: true, response: { assetId: "321" } }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  };
+
+  try {
+    const uploader = createRobloxUploader({
+      accessTokenProvider: async () => "oauth-access",
+      creatorType: "User",
+      creatorId: "123"
+    });
+    assert.equal(await uploader.waitForAsset("operations/test", { attempts: 1, intervalMs: 0 }), "321");
+    assert.equal(authHeader, "Bearer oauth-access");
   } finally {
     globalThis.fetch = originalFetch;
   }
