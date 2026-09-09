@@ -8,7 +8,7 @@ Versi 2.6 mendaftarkan command secara global dan menyokong allowlist beberapa se
 
 Versi 2.7 menambah **Paste Link Audio**: bot memuat turun satu fail audio public daripada host yang disokong, mengesahkan fail, auto-edit, upload ke Roblox, kemudian memberi Asset ID, JSON dan Lua.
 
-Versi 2.8 menambah pilihan speed `1x`, `1.5x` dan `2x`, serta `/roblox-account` untuk sambungan Roblox per pengguna melalui OAuth rasmi. Jika user biasa connect Roblox, upload akan masuk ke akaun Roblox user itu sendiri, bukan community/group default bot.
+Versi 2.8 menambah pilihan speed `1x`, `1.5x` dan `2x`, `/roblox-account` untuk sambungan Roblox per pengguna melalui OAuth rasmi, serta `/roblox-server` untuk admin set creator Roblox bagi setiap server Discord. Dalam server baru, user biasa tidak boleh upload sehingga admin set creator ID server itu.
 
 Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload default pemilik masih dikawal menggunakan server dan role Discord.
 
@@ -37,6 +37,8 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 Dalam Discord:
 
 - `/menu` ialah cara paling mudah dan disyorkan. Tekan **Pilih Fail Audio** untuk membuka pemilih 1–5 fail, **Paste Link Audio** untuk menampal link fail public, atau **YouTube Auto Upload** untuk membuka borang YouTube. Tandakan pengesahan hak audio dan hantar.
+- Admin server baru perlu guna `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX` dahulu. Gunakan `creator_type:User` jika server itu mahu upload ke satu Roblox user creator.
+- `/roblox-server status` melihat creator ID server. `/roblox-server clear` memadam setup dan menyekat upload user biasa sehingga diset semula.
 - Tekan **Akaun Roblox** atau guna `/roblox-account` untuk connect/disconnect akaun Roblox anda. Selepas connect, upload anda akan masuk ke akaun Roblox sendiri.
 - Setiap flow convert/upload boleh pilih speed `1x`, `1.5x` atau `2x`. Pitch tidak dinaikkan; bot menggunakan perubahan tempo audio.
 - **Paste Link Audio** menyokong link public daripada Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Bot terus download, periksa, convert, normalize, upload dan memulangkan Asset ID tanpa langkah tambahan.
@@ -73,9 +75,9 @@ Untuk bot public, gunakan OAuth rasmi Roblox supaya user tidak perlu memberi API
 - Cipta Roblox OAuth app dengan redirect URL `https://DOMAIN-BOT/oauth/roblox/callback`.
 - Scope yang diperlukan: `openid`, `profile`, `asset:read`, `asset:write`.
 - Set Railway variables `ROBLOX_OAUTH_CLIENT_ID`, `ROBLOX_OAUTH_CLIENT_SECRET` dan jika perlu `ROBLOX_OAUTH_REDIRECT_URI`.
-- Set `DATA_DIR=/app/data` dan pasang Railway volume ke `/app/data`, supaya token OAuth user kekal selepas deploy/restart.
+- Set `DATA_DIR=/app/data` dan pasang Railway volume ke `/app/data`, supaya token OAuth user dan setup creator server kekal selepas deploy/restart.
 
-Token OAuth disimpan terenkripsi dalam `DATA_DIR`. Jika client secret OAuth ditukar, user perlu connect semula.
+Token OAuth disimpan terenkripsi dalam `DATA_DIR`. Setup creator server tidak mengandungi secret, tetapi tetap disimpan dalam volume yang sama. Jika client secret OAuth ditukar, user perlu connect semula.
 
 ## Batas
 

@@ -57,6 +57,14 @@ test("Roblox account command is available without options", () => {
   assert.deepEqual(account.options || [], []);
 });
 
+test("Roblox server command exposes admin setup subcommands", () => {
+  const server = allCommands.map((item) => item.toJSON()).find((command) => command.name === "roblox-server");
+  assert.ok(server);
+  assert.deepEqual(server.options.map((option) => option.name), ["set", "status", "clear"]);
+  const set = server.options.find((option) => option.name === "set");
+  assert.deepEqual(set.options.map((option) => option.name), ["creator_type", "creator_id"]);
+});
+
 test("upload commands expose supported speed choices", () => {
   for (const name of ["upload", "yt", "roblox-upload", "roblox-audio"]) {
     const command = allCommands.map((item) => item.toJSON()).find((item) => item.name === name);

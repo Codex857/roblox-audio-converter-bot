@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
 function speedOption(option) {
   return option
@@ -97,9 +97,43 @@ export const robloxAccountCommand = new SlashCommandBuilder()
   .setName("roblox-account")
   .setDescription("Sambung atau putuskan akaun Roblox peribadi dengan selamat");
 
+export const robloxServerCommand = new SlashCommandBuilder()
+  .setName("roblox-server")
+  .setDescription("Tetapkan destinasi creator Roblox untuk server ini")
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("set")
+      .setDescription("Set creator Roblox server ini")
+      .addStringOption((option) =>
+        option
+          .setName("creator_type")
+          .setDescription("Jenis creator Roblox")
+          .setRequired(true)
+          .addChoices(
+            { name: "Group", value: "Group" },
+            { name: "User", value: "User" }
+          )
+      )
+      .addStringOption((option) =>
+        option
+          .setName("creator_id")
+          .setDescription("ID group/user Roblox untuk server ini")
+          .setRequired(true)
+          .setMaxLength(30)
+      )
+  )
+  .addSubcommand((subcommand) =>
+    subcommand.setName("status").setDescription("Lihat destinasi creator Roblox server ini")
+  )
+  .addSubcommand((subcommand) =>
+    subcommand.setName("clear").setDescription("Padam destinasi creator Roblox server ini")
+  );
+
 export const allCommands = [
   menuCommand,
   robloxAccountCommand,
+  robloxServerCommand,
   quickUploadCommand,
   youtubeUploadCommand,
   robloxUploadCommand,

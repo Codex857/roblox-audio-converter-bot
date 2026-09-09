@@ -10,12 +10,14 @@ import {
   Client,
   Events,
   GatewayIntentBits,
-  MessageFlags
+  MessageFlags,
+  PermissionFlagsBits
 } from "discord.js";
 import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
 import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
 import { createRobloxOAuth } from "./roblox-oauth.js";
+import { GuildConfigStore, normalizeCreatorConfig } from "./guild-config-store.js";
 import {
   directAudioUploadModal,
   fileUploadModal,
@@ -60,6 +62,9 @@ const robloxOAuth = await createRobloxOAuth({
   redirectUri: robloxOAuthRedirectUri,
   dataDirectory
 });
+const guildConfigStore = await new GuildConfigStore({
+  directory: join(dataDirectory, "guild-creator-configs")
+}).init();
 const deployedUploadGuildIds = [
   process.env.ROBLOX_UPLOAD_GUILD_IDS,
   "1412169906140741725"
@@ -103,6 +108,22 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.Error, (error) => {
   console.error("Discord client error:", error);
+});
+
+client.on(Events.GuildCreate, (guild) => {
+  const channel = guild.systemChannel || guild.channels.cache.find((item) =>
+    item?.isTextBased?.() && item.permissionsFor(guild.members.me)?.has(PermissionFlagsBits.SendMessages)
+  );
+  if (!channel?.send) return;
+  void channel.send({
+    content: [
+      "Terima kasih invite bot audio Roblox.",
+      "Sebelum upload digunakan di server ini, admin perlu set destinasi Roblox:",
+      "`/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`",
+      "Selepas itu setiap user guna `/roblox-account` untuk connect Roblox sendiri. Upload akan pergi ke creator ID server ini jika akaun Roblox user itu ada permission."
+    ].join("\n"),
+    allowedMentions: { parse: [] }
+  }).catch(() => {});
 });
 
 void checkYouTubeTool(ytDlpPath)
@@ -173,29 +194,42 @@ function canUseDefaultRoblox(interaction) {
 }
 
 function resolveUploadTarget(interaction) {
-  const profile = robloxOAuth.getPublicProfile(interaction.user.id);
-  if (profile) {
-    return {
-      uploader: createRobloxUploader({
-        creatorType: "User",
-        creatorId: profile.robloxUserId,
-        accessTokenProvider: () => robloxOAuth.getAccessToken(interaction.user.id)
-      }),
-      label: `${profile.username} (${profile.robloxUserId})`
-    };
-  }
+  const guildConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
   if (canUseDefaultRoblox(interaction)) {
     return {
       uploader: defaultRoblox,
       label: `${defaultRoblox.creatorType} ${defaultRoblox.creatorId}`
     };
   }
+  if (interaction.guildId && !guildConfig) return null;
+
+  const profile = robloxOAuth.getPublicProfile(interaction.user.id);
+  if (profile) {
+    const creatorType = guildConfig?.creatorType || "User";
+    const creatorId = guildConfig?.creatorId || profile.robloxUserId;
+    return {
+      uploader: createRobloxUploader({
+        creatorType,
+        creatorId,
+        accessTokenProvider: () => robloxOAuth.getAccessToken(interaction.user.id)
+      }),
+      label: guildConfig
+        ? `${creatorType} ${creatorId} (server ini)`
+        : `${profile.username} (${profile.robloxUserId})`
+    };
+  }
   return null;
 }
 
 async function replyUploadTargetRequired(interaction) {
+  const guildConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
   const content = robloxOAuth.configured
-    ? "❌ Sila connect akaun Roblox anda dahulu dengan `/roblox-account`, supaya upload masuk ke akaun anda sendiri."
+    ? [
+        "❌ Sila connect akaun Roblox anda dahulu dengan `/roblox-account`.",
+        guildConfig
+          ? `Server ini sudah diset ke Roblox ${guildConfig.creatorType} ${guildConfig.creatorId}.`
+          : "Admin server boleh set destinasi server dengan `/roblox-server set` supaya upload tidak masuk creator yang salah."
+      ].join("\n")
     : "❌ Roblox OAuth belum dikonfigurasi oleh pemilik bot. Buat masa ini hanya pemilik bot yang boleh upload ke creator default.";
   await interaction.reply({
     content,
@@ -712,6 +746,60 @@ async function handleRobloxAccountButton(interaction) {
   return true;
 }
 
+function ensureGuildAdmin(interaction) {
+  return interaction.inGuild()
+    && interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
+}
+
+async function showRobloxServer(interaction) {
+  if (!interaction.inGuild()) {
+    await interaction.reply({ content: "❌ Command ini hanya boleh digunakan dalam server Discord.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (!ensureGuildAdmin(interaction)) {
+    await interaction.reply({ content: "❌ Hanya admin dengan permission Manage Server boleh ubah setup Roblox server ini.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const subcommand = interaction.options.getSubcommand();
+  if (subcommand === "status") {
+    const config = guildConfigStore.get(interaction.guildId);
+    await interaction.reply({
+      content: config
+        ? `✅ Server ini diset ke Roblox ${config.creatorType} ${config.creatorId}.`
+        : "⚠️ Server ini belum ada creator Roblox. Guna `/roblox-server set` dahulu.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  if (subcommand === "clear") {
+    await guildConfigStore.delete(interaction.guildId);
+    await interaction.reply({
+      content: "✅ Setup creator Roblox server ini sudah dipadam. Upload user biasa akan disekat sampai admin set semula.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const config = normalizeCreatorConfig({
+    creatorType: interaction.options.getString("creator_type", true),
+    creatorId: interaction.options.getString("creator_id", true),
+    updatedBy: interaction.user.id
+  });
+  const saved = await guildConfigStore.set(interaction.guildId, {
+    ...config,
+    updatedBy: interaction.user.id
+  });
+  await interaction.reply({
+    content: [
+      `✅ Server ini sekarang diset ke Roblox ${saved.creatorType} ${saved.creatorId}.`,
+      "Setiap user perlu `/roblox-account` dan akaun Roblox mereka mesti ada permission upload ke creator itu."
+    ].join("\n"),
+    flags: MessageFlags.Ephemeral
+  });
+}
+
 async function handleMenuButton(interaction) {
   if (!interaction.customId.startsWith("music-menu:")) return false;
 
@@ -724,9 +812,11 @@ async function handleMenuButton(interaction) {
     await interaction.reply({
       content: [
         "🎵 **Cara guna menu audio Roblox**",
+        "Admin server baru: set dahulu creator Roblox dengan `/roblox-server set`.",
         "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
-        "2. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
-        "3. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "2. User tekan **Akaun Roblox** untuk connect akaun Roblox sendiri.",
+        "3. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
+        "4. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
         "Link audio menyokong Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Link YouTube mesti menggunakan pilihan YouTube.",
         "Semua upload masih melalui moderation Roblox. Playlist, live, video private dan DRM tidak disokong."
@@ -854,7 +944,7 @@ async function handleInteraction(interaction) {
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["menu", "upload", "yt", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account"].includes(interaction.commandName)) return;
+  if (!["menu", "upload", "yt", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server"].includes(interaction.commandName)) return;
 
   if (interaction.commandName === "menu") {
     await interaction.reply({
@@ -879,6 +969,11 @@ async function handleInteraction(interaction) {
     return;
   }
 
+  if (interaction.commandName === "roblox-server") {
+    await showRobloxServer(interaction);
+    return;
+  }
+
   if (interaction.commandName === "yt") {
     await showYouTubeConfirmation(interaction);
     return;
@@ -889,6 +984,8 @@ async function handleInteraction(interaction) {
       content: [
         "🎵 **Cara guna bot audio Roblox**",
         "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio**, **Paste Link Audio** atau **YouTube Auto Upload**.",
+        "Untuk server baru, admin mesti set creator Roblox dahulu dengan `/roblox-server set creator_type:Group creator_id:ID_GROUP`.",
+        "Setiap user pula guna `/roblox-account` untuk connect Roblox sendiri.",
         "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
         "",
         "Menu menyokong 1–5 fail, satu link fail audio public, atau satu link video YouTube public.",
@@ -976,6 +1073,8 @@ const httpServer = startServer({
     robloxOAuthConfigured: robloxOAuth.configured,
     linkedRobloxUsers: robloxOAuth.linkedCount(),
     corruptRobloxProfiles: robloxOAuth.corruptProfileCount(),
+    configuredRobloxServers: guildConfigStore.size,
+    corruptRobloxServerConfigs: guildConfigStore.corruptFiles,
     youtubeReady,
     youtubeToolVersion
   })
