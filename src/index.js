@@ -54,8 +54,8 @@ if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tid
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const defaultRoblox = createRobloxUploader({
   apiKey: process.env.ROBLOX_API_KEY,
-  creatorType: process.env.ROBLOX_CREATOR_TYPE,
-  creatorId: process.env.ROBLOX_CREATOR_ID
+  creatorType: process.env.CREATOR_TYPE || process.env.ROBLOX_CREATOR_TYPE,
+  creatorId: process.env.CREATOR_ID || process.env.ROBLOX_CREATOR_ID
 });
 const robloxOAuth = await createRobloxOAuth({
   clientId: process.env.ROBLOX_OAUTH_CLIENT_ID,
@@ -818,9 +818,10 @@ async function handleMenuButton(interaction) {
       content: [
         "🎵 **Cara guna menu audio Roblox**",
         "**Developer/admin server:**",
-        "1. Set creator Roblox server: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
-        "2. Check setup: `/roblox-server status`.",
-        "3. Pastikan user yang upload sudah connect Roblox dan ada permission upload ke creator itu.",
+        "1. Railway default bot guna env `ROBLOX_API_KEY`, `CREATOR_TYPE`, `CREATOR_ID`.",
+        "2. Server baru set creator sendiri: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
+        "3. Check setup: `/roblox-server status`.",
+        "4. Pastikan user yang upload sudah connect Roblox dan ada permission upload ke creator itu.",
         "",
         "**User biasa:**",
         "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
@@ -1029,11 +1030,12 @@ async function handleInteraction(interaction) {
       content: [
         "🎵 **Cara guna bot audio Roblox**",
         "**Untuk developer/admin server:**",
-        "1. Selepas invite bot, set destinasi Roblox: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
-        "2. Guna `creator_type:User` kalau mahu upload ke user creator, bukan group.",
-        "3. Guna `/roblox-server status` untuk confirm ID betul sebelum user upload.",
-        "4. User yang upload mesti `/roblox-account` dan akaun Roblox itu mesti ada permission upload ke creator tersebut.",
-        "5. Guna `/roblox-server clear` kalau tersalah set ID dan mahu sekat upload sementara.",
+        "1. Railway default bot perlukan `ROBLOX_API_KEY`, `CREATOR_TYPE`, `CREATOR_ID`.",
+        "2. Jika `CREATOR_TYPE=Group`, `CREATOR_ID` ialah Group ID. Jika `CREATOR_TYPE=User`, `CREATOR_ID` ialah User ID.",
+        "3. Selepas invite bot ke server lain, set destinasi server itu: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
+        "4. Guna `/roblox-server status` untuk confirm ID betul sebelum user upload.",
+        "5. User yang upload mesti `/roblox-account` dan akaun Roblox itu mesti ada permission upload ke creator tersebut.",
+        "6. Guna `/roblox-server clear` kalau tersalah set ID dan mahu sekat upload sementara.",
         "",
         "**Untuk user biasa:**",
         "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio**, **Paste Link Audio** atau **YouTube Auto Upload**.",

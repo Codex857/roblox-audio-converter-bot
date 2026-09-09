@@ -59,8 +59,9 @@ Biarkan `normalize` off untuk mengekalkan mix asal. Semua borang dan hasil `/men
 Tetapkan secrets berikut pada host, bukan dalam GitHub atau mesej Discord:
 
 - `ROBLOX_API_KEY` — API key dengan permission `asset:write` untuk creator yang dipilih.
-- `ROBLOX_CREATOR_TYPE` — `Group` atau `User`.
-- `ROBLOX_CREATOR_ID` — ID group/user Roblox.
+- `CREATOR_TYPE` — `Group` atau `User`.
+- `CREATOR_ID` — ID group/user Roblox. Jika `CREATOR_TYPE=Group`, isi Group ID. Jika `CREATOR_TYPE=User`, isi User ID.
+- `ROBLOX_CREATOR_TYPE` dan `ROBLOX_CREATOR_ID` masih disokong sebagai alias lama, tetapi gunakan `CREATOR_TYPE` dan `CREATOR_ID` untuk setup baru.
 - `ROBLOX_UPLOAD_GUILD_ID` — ID server Discord yang dibenarkan.
 - `ROBLOX_UPLOAD_GUILD_IDS` — beberapa ID server tambahan, dipisahkan dengan koma.
 - `ROBLOX_UPLOAD_ROLE_ID` — ID role Discord yang boleh menggunakan `/roblox-upload`. Gunakan ID server/guild yang sama untuk membenarkan role `@everyone`.
