@@ -43,7 +43,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.8.0";
+const BOT_VERSION = "2.8.5";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
@@ -64,7 +64,8 @@ const robloxOAuth = await createRobloxOAuth({
   dataDirectory
 });
 const guildConfigStore = await new GuildConfigStore({
-  directory: join(dataDirectory, "guild-creator-configs")
+  directory: join(dataDirectory, "guild-creator-configs"),
+  secret: process.env.SERVER_CONFIG_SECRET || token
 }).init();
 const deployedUploadGuildIds = [
   process.env.ROBLOX_UPLOAD_GUILD_IDS,
@@ -121,7 +122,7 @@ client.on(Events.GuildCreate, (guild) => {
       "Terima kasih invite bot audio Roblox.",
       "Sebelum upload digunakan di server ini, admin perlu set destinasi Roblox:",
       "`/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`",
-      "Selepas itu setiap user guna `/roblox-account` untuk connect Roblox sendiri. Upload akan pergi ke creator ID server ini jika akaun Roblox user itu ada permission."
+      "Paling mudah: admin tekan `/menu` > Akaun Roblox, kemudian isi ROBLOX_API_KEY, CREATOR_TYPE dan CREATOR_ID server ini."
     ].join("\n"),
     allowedMentions: { parse: [] }
   }).catch(() => {});
@@ -195,7 +196,17 @@ function canUseDefaultRoblox(interaction) {
 }
 
 function resolveUploadTarget(interaction) {
-  const guildConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
+  const guildConfig = interaction.guildId ? guildConfigStore.getUploadConfig(interaction.guildId) : null;
+  if (guildConfig?.apiKey) {
+    return {
+      uploader: createRobloxUploader({
+        apiKey: guildConfig.apiKey,
+        creatorType: guildConfig.creatorType,
+        creatorId: guildConfig.creatorId
+      }),
+      label: `${guildConfig.creatorType} ${guildConfig.creatorId} (server ini)`
+    };
+  }
   if (canUseDefaultRoblox(interaction)) {
     return {
       uploader: defaultRoblox,
@@ -224,14 +235,9 @@ function resolveUploadTarget(interaction) {
 
 async function replyUploadTargetRequired(interaction) {
   const guildConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
-  const content = robloxOAuth.configured
-    ? [
-        "❌ Sila connect akaun Roblox anda dahulu dengan `/roblox-account`.",
-        guildConfig
-          ? `Server ini sudah diset ke Roblox ${guildConfig.creatorType} ${guildConfig.creatorId}.`
-          : "Admin server boleh set destinasi server dengan `/roblox-server set` supaya upload tidak masuk creator yang salah."
-      ].join("\n")
-    : "❌ Roblox OAuth belum dikonfigurasi oleh pemilik bot. Buat masa ini hanya pemilik bot yang boleh upload ke creator default.";
+  const content = guildConfig && !guildConfig.apiKeyConfigured
+    ? "❌ Server ini ada creator ID, tapi belum ada ROBLOX_API_KEY. Admin tekan **Akaun Roblox** dalam `/menu` untuk isi API key."
+    : "❌ Server ini belum setup Roblox API key. Admin tekan **Akaun Roblox** dalam `/menu`, paste ROBLOX_API_KEY, pilih Group/User, dan isi CREATOR_ID.";
   await interaction.reply({
     content,
     components: robloxOAuth.configured ? makeRobloxConnectButton(interaction.user.id) : [],
@@ -704,8 +710,8 @@ async function showRobloxAccount(interaction) {
   if (!robloxOAuth.configured) {
     await interaction.reply({
       content: [
-        "❌ Akaun Roblox user belum tersedia kerana OAuth belum dikonfigurasi di Railway.",
-        "Minta admin server tekan **Akaun Roblox** untuk isi Roblox Group/User ID server dahulu."
+        "❌ Server ini belum ada Roblox API key sendiri.",
+        "Minta admin server tekan **Akaun Roblox** untuk isi `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, dan isi `CREATOR_ID`."
       ].join("\n"),
       flags: MessageFlags.Ephemeral
     });
@@ -771,7 +777,10 @@ async function showRobloxServer(interaction) {
     const config = guildConfigStore.get(interaction.guildId);
     await interaction.reply({
       content: config
-        ? `✅ Server ini diset ke Roblox ${config.creatorType} ${config.creatorId}.`
+        ? [
+            `✅ Server ini diset ke Roblox ${config.creatorType} ${config.creatorId}.`,
+            `API key: ${config.apiKeyConfigured ? "sudah ada" : "belum ada"}`
+          ].join("\n")
         : "⚠️ Server ini belum ada creator Roblox. Guna `/roblox-server set` dahulu.",
       flags: MessageFlags.Ephemeral
     });
@@ -799,7 +808,9 @@ async function showRobloxServer(interaction) {
   await interaction.reply({
     content: [
       `✅ Server ini sekarang diset ke Roblox ${saved.creatorType} ${saved.creatorId}.`,
-      "Setiap user perlu `/roblox-account` dan akaun Roblox mereka mesti ada permission upload ke creator itu."
+      saved.apiKeyConfigured
+        ? "API key server ini sudah tersimpan encrypted."
+        : "API key belum diset. Admin boleh tekan **Akaun Roblox** dalam `/menu` untuk isi API key."
     ].join("\n"),
     flags: MessageFlags.Ephemeral
   });
@@ -818,10 +829,10 @@ async function handleMenuButton(interaction) {
       content: [
         "🎵 **Cara guna menu audio Roblox**",
         "**Developer/admin server:**",
-        "1. Railway default bot guna env `ROBLOX_API_KEY`, `CREATOR_TYPE`, `CREATOR_ID`.",
-        "2. Server baru set creator sendiri: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
+        "1. Buat Roblox Open Cloud API key dengan `asset:read` dan `asset:write`.",
+        "2. Tekan **Akaun Roblox**, paste `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, isi `CREATOR_ID`.",
         "3. Check setup: `/roblox-server status`.",
-        "4. Pastikan user yang upload sudah connect Roblox dan ada permission upload ke creator itu.",
+        "4. Jika Group, API key mesti diberi access ke Group ID itu dalam Roblox Creator Dashboard.",
         "",
         "**User biasa:**",
         "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
@@ -871,6 +882,7 @@ async function handleMenuModal(interaction) {
     }
     try {
       const saved = await guildConfigStore.set(interaction.guildId, {
+        apiKey: interaction.fields.getTextInputValue("roblox_api_key"),
         creatorType: interaction.fields.getStringSelectValues("creator_type")[0],
         creatorId: interaction.fields.getTextInputValue("creator_id"),
         updatedBy: interaction.user.id
@@ -881,7 +893,7 @@ async function handleMenuModal(interaction) {
           saved.creatorType === "Group"
             ? "Ini bermaksud upload akan masuk ke Roblox group/community ID itu."
             : "Ini bermaksud upload akan masuk ke Roblox user creator ID itu.",
-          "Sebelum upload, user perlu connect Roblox sendiri dengan `/roblox-account` jika OAuth sudah aktif.",
+          "ROBLOX_API_KEY server ini sudah tersimpan encrypted.",
           "Gunakan `/roblox-server status` untuk check semula ID ini."
         ].join("\n"),
         flags: MessageFlags.Ephemeral,
@@ -1030,16 +1042,15 @@ async function handleInteraction(interaction) {
       content: [
         "🎵 **Cara guna bot audio Roblox**",
         "**Untuk developer/admin server:**",
-        "1. Railway default bot perlukan `ROBLOX_API_KEY`, `CREATOR_TYPE`, `CREATOR_ID`.",
-        "2. Jika `CREATOR_TYPE=Group`, `CREATOR_ID` ialah Group ID. Jika `CREATOR_TYPE=User`, `CREATOR_ID` ialah User ID.",
-        "3. Selepas invite bot ke server lain, set destinasi server itu: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`.",
-        "4. Guna `/roblox-server status` untuk confirm ID betul sebelum user upload.",
-        "5. User yang upload mesti `/roblox-account` dan akaun Roblox itu mesti ada permission upload ke creator tersebut.",
-        "6. Guna `/roblox-server clear` kalau tersalah set ID dan mahu sekat upload sementara.",
+        "1. Buat API key di Roblox Creator Dashboard > Credentials.",
+        "2. Permission API key: Assets `asset:read` dan `asset:write`.",
+        "3. Tekan `/menu` > **Akaun Roblox**, masukkan `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, isi `CREATOR_ID`.",
+        "4. Jika pilih Group, `CREATOR_ID` ialah Group ID dan API key mesti ada access ke group itu.",
+        "5. Jika pilih User, `CREATOR_ID` ialah User ID pemilik API key.",
+        "6. Guna `/roblox-server status` untuk confirm ID betul. Guna `/roblox-server clear` kalau tersalah set.",
         "",
         "**Untuk user biasa:**",
         "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio**, **Paste Link Audio** atau **YouTube Auto Upload**.",
-        "Tekan **Akaun Roblox** atau guna `/roblox-account` untuk connect Roblox sendiri.",
         "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
         "",
         "Menu menyokong 1–5 fail, satu link fail audio public, atau satu link video YouTube public.",

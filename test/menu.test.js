@@ -65,8 +65,9 @@ test("YouTube modal contains a link field, speed picker and rights confirmation"
 test("Roblox server setup modal asks for creator type and ID", () => {
   const modal = robloxServerSetupModal().toJSON();
   assert.equal(modal.custom_id, "music-menu:server-setup-modal");
-  assert.deepEqual(modal.components.map((row) => row.component.custom_id), ["creator_type", "creator_id"]);
-  assert.equal(modal.components[0].component.type, 3);
-  assert.deepEqual(modal.components[0].component.options.map((option) => option.value), ["Group", "User"]);
-  assert.equal(modal.components[1].component.type, 4);
+  assert.deepEqual(modal.components.map((row) => row.component.custom_id), ["roblox_api_key", "creator_type", "creator_id"]);
+  assert.equal(modal.components[0].component.type, 4);
+  assert.equal(modal.components[1].component.type, 3);
+  assert.deepEqual(modal.components[1].component.options.map((option) => option.value), ["Group", "User"]);
+  assert.equal(modal.components[2].component.type, 4);
 });

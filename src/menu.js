@@ -149,6 +149,17 @@ export function robloxServerSetupModal() {
     .setTitle("Setup Creator Roblox Server")
     .addLabelComponents(
       new LabelBuilder()
+        .setLabel("Roblox Open Cloud API Key")
+        .setDescription("Paste API key developer server ini. Bot simpan encrypted.")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("roblox_api_key")
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder("Masukkan ROBLOX_API_KEY")
+            .setMaxLength(2000)
+            .setRequired(true)
+        ),
+      new LabelBuilder()
         .setLabel("Jenis creator Roblox")
         .setDescription("Pilih satu sahaja")
         .setStringSelectMenuComponent(
