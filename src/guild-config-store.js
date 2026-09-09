@@ -5,10 +5,11 @@ const GUILD_ID = /^\d{15,25}$/;
 const CREATOR_TYPES = new Set(["User", "Group"]);
 
 export function normalizeCreatorConfig(config = {}) {
-  const creatorType = String(config.creatorType || "").trim();
+  const rawCreatorType = String(config.creatorType || "").trim().toLowerCase();
+  const creatorType = rawCreatorType === "group" ? "Group" : rawCreatorType === "user" ? "User" : String(config.creatorType || "").trim();
   const creatorId = String(config.creatorId || "").trim();
-  if (!CREATOR_TYPES.has(creatorType)) throw new Error("creator_type mesti User atau Group.");
-  if (!/^\d+$/.test(creatorId)) throw new Error("creator_id Roblox tidak sah.");
+  if (!CREATOR_TYPES.has(creatorType)) throw new Error("Pilih Group atau User sahaja.");
+  if (!/^\d+$/.test(creatorId)) throw new Error("Isi nombor ID sahaja. Jika pilih Group, isi Group ID. Jika pilih User, isi User ID.");
   return { creatorType, creatorId };
 }
 

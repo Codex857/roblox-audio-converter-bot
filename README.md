@@ -37,7 +37,8 @@ Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut.
 Dalam Discord:
 
 - `/menu` ialah cara paling mudah dan disyorkan. Tekan **Pilih Fail Audio** untuk membuka pemilih 1–5 fail, **Paste Link Audio** untuk menampal link fail public, atau **YouTube Auto Upload** untuk membuka borang YouTube. Tandakan pengesahan hak audio dan hantar.
-- Admin server baru perlu guna `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX` dahulu. Gunakan `creator_type:User` jika server itu mahu upload ke satu Roblox user creator.
+- Admin server baru boleh tekan **Akaun Roblox** dalam `/menu`, pilih `Group` atau `User`, kemudian isi satu ID sahaja. Pilih `Group` + Group ID untuk community/group, atau `User` + User ID untuk user creator.
+- Command manual juga tersedia: `/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`. Gunakan `creator_type:User` jika server itu mahu upload ke satu Roblox user creator.
 - `/roblox-server status` melihat creator ID server. `/roblox-server clear` memadam setup dan menyekat upload user biasa sehingga diset semula.
 - Tekan **Akaun Roblox** atau guna `/roblox-account` untuk connect/disconnect akaun Roblox anda. Selepas connect, upload anda akan masuk ke akaun Roblox sendiri.
 - Setiap flow convert/upload boleh pilih speed `1x`, `1.5x` atau `2x`. Pitch tidak dinaikkan; bot menggunakan perubahan tempo audio.

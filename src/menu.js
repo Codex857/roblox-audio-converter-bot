@@ -150,23 +150,32 @@ export function robloxServerSetupModal() {
     .addLabelComponents(
       new LabelBuilder()
         .setLabel("Jenis creator Roblox")
-        .setDescription("Isi Group atau User")
-        .setTextInputComponent(
-          new TextInputBuilder()
+        .setDescription("Pilih satu sahaja")
+        .setStringSelectMenuComponent(
+          new StringSelectMenuBuilder()
             .setCustomId("creator_type")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("Group")
-            .setMaxLength(10)
-            .setRequired(true)
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(
+              new StringSelectMenuOptionBuilder()
+                .setLabel("Group")
+                .setDescription("Upload masuk ke Roblox group/community")
+                .setValue("Group")
+                .setDefault(true),
+              new StringSelectMenuOptionBuilder()
+                .setLabel("User")
+                .setDescription("Upload masuk ke Roblox user creator")
+                .setValue("User")
+            )
         ),
       new LabelBuilder()
-        .setLabel("ID group/user Roblox")
-        .setDescription("Masukkan nombor ID Roblox yang betul untuk server ini")
+        .setLabel("Creator ID Roblox")
+        .setDescription("Isi SATU ID sahaja: Group ID jika pilih Group, User ID jika pilih User")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("creator_id")
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder("123456789")
+            .setPlaceholder("Contoh: 123456789")
             .setMaxLength(30)
             .setRequired(true)
         )

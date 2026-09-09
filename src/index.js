@@ -870,13 +870,16 @@ async function handleMenuModal(interaction) {
     }
     try {
       const saved = await guildConfigStore.set(interaction.guildId, {
-        creatorType: interaction.fields.getTextInputValue("creator_type"),
+        creatorType: interaction.fields.getStringSelectValues("creator_type")[0],
         creatorId: interaction.fields.getTextInputValue("creator_id"),
         updatedBy: interaction.user.id
       });
       await interaction.reply({
         content: [
           `✅ Server ini sekarang diset ke Roblox ${saved.creatorType} ${saved.creatorId}.`,
+          saved.creatorType === "Group"
+            ? "Ini bermaksud upload akan masuk ke Roblox group/community ID itu."
+            : "Ini bermaksud upload akan masuk ke Roblox user creator ID itu.",
           "Sebelum upload, user perlu connect Roblox sendiri dengan `/roblox-account` jika OAuth sudah aktif.",
           "Gunakan `/roblox-server status` untuk check semula ID ini."
         ].join("\n"),

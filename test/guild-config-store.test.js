@@ -12,8 +12,12 @@ test("creator config validates Roblox creator type and ID", () => {
     creatorType: "Group",
     creatorId: "123"
   });
-  assert.throws(() => normalizeCreatorConfig({ creatorType: "Game", creatorId: "123" }), /creator_type/);
-  assert.throws(() => normalizeCreatorConfig({ creatorType: "Group", creatorId: "abc" }), /creator_id/);
+  assert.deepEqual(normalizeCreatorConfig({ creatorType: "group", creatorId: "123" }), {
+    creatorType: "Group",
+    creatorId: "123"
+  });
+  assert.throws(() => normalizeCreatorConfig({ creatorType: "Game", creatorId: "123" }), /Group atau User/);
+  assert.throws(() => normalizeCreatorConfig({ creatorType: "Group", creatorId: "abc" }), /nombor ID/);
 });
 
 test("guild config store saves, reloads and deletes server creator config", async () => {
