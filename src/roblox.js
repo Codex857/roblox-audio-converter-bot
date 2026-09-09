@@ -10,8 +10,8 @@ function cleanText(value, maxLength, field) {
     .replace(/[\u0000-\u001f\u007f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text) throw new Error(`${field} diperlukan.`);
-  if (text.length > maxLength) throw new Error(`${field} terlalu panjang (maksimum ${maxLength} aksara).`);
+  if (!text) throw new Error(`${field} is required.`);
+  if (text.length > maxLength) throw new Error(`${field} is too long (maximum ${maxLength} characters).`);
   return text;
 }
 
@@ -20,26 +20,26 @@ function apiErrorDetail(body) {
   if (typeof body?.error === "string") return body.error;
   if (typeof body?.error?.message === "string") return body.error.message;
   if (Array.isArray(body?.errors) && body.errors[0]?.message) return body.errors[0].message;
-  return "ralat API";
+  return "API error";
 }
 
 export function robloxApiError(status, body = {}) {
   const friendly = {
-    400: "Roblox menolak permintaan atau fail audio tidak sah (400).",
-    401: "Roblox menolak akses; API key/token mungkin tidak sah atau tamat tempoh (401).",
-    403: "Akses Roblox tiada asset:write atau creator permission (403).",
-    404: "Endpoint atau operasi upload Roblox tidak ditemui (404).",
-    409: "Roblox menolak upload kerana konflik (409).",
-    413: "Fail audio terlalu besar untuk Roblox (413).",
-    429: "Had/rate limit upload Roblox sudah dicapai (429)."
-  }[status] || `Upload Roblox gagal (HTTP ${status}).`;
+    400: "Roblox rejected the request or the audio file is invalid (400).",
+    401: "Roblox rejected access; the API key/token may be invalid or expired (401).",
+    403: "Roblox access is missing asset:write or creator permission (403).",
+    404: "Roblox upload endpoint or operation was not found (404).",
+    409: "Roblox rejected the upload because of a conflict (409).",
+    413: "Audio file is too large for Roblox (413).",
+    429: "Roblox upload rate limit has been reached (429)."
+  }[status] || `Roblox upload failed (HTTP ${status}).`;
   const detail = apiErrorDetail(body);
-  return detail === "ralat API" ? friendly : `${friendly} ${detail}`;
+  return detail === "API error" ? friendly : `${friendly} ${detail}`;
 }
 
 export function normalizeOperationPath(path) {
   const value = String(path || "").trim();
-  if (!value) throw new Error("Roblox tidak memulangkan operation path.");
+  if (!value) throw new Error("Roblox did not return an operation path.");
   if (value.startsWith(`${ASSETS_API}/`)) return value.slice(`${ASSETS_API}/`.length);
   if (value.startsWith("https://apis.roblox.com/assets/v1/")) {
     return value.slice("https://apis.roblox.com/assets/v1/".length);
@@ -78,9 +78,9 @@ export function createRobloxUploader(config = {}) {
       });
     } catch (error) {
       if (error?.name === "TimeoutError") {
-        throw requestFailure("Sambungan Roblox tamat masa. Cuba lagi.", true);
+        throw requestFailure("Roblox connection timed out. Try again.", true);
       }
-      throw requestFailure("Tidak dapat menyambung ke Roblox Open Cloud.", true);
+      throw requestFailure("Could not connect to Roblox Open Cloud.", true);
     }
     const text = await response.text();
     let body;
@@ -93,8 +93,8 @@ export function createRobloxUploader(config = {}) {
   }
 
   async function upload({ filePath, fileName, displayName, description }) {
-    if (!configured) throw new Error("Roblox Open Cloud belum dikonfigurasi oleh pemilik bot.");
-    const name = cleanText(displayName, 50, "Nama aset");
+    if (!configured) throw new Error("Roblox Open Cloud is not configured by the bot owner.");
+    const name = cleanText(displayName, 50, "Asset name");
     const desc = String(description || "Uploaded from Discord using licensed audio").trim().slice(0, 1000);
     const creatorKey = creatorType === "Group" ? "groupId" : "userId";
     const metadata = {
@@ -120,11 +120,11 @@ export function createRobloxUploader(config = {}) {
           if (operation.error) {
             const reason = typeof operation.error === "string"
               ? operation.error
-              : operation.error.message || operation.error.code || "ditolak semasa moderation/pemprosesan";
-            throw new Error(`Roblox tidak menyiapkan aset: ${reason}`);
+              : operation.error.message || operation.error.code || "rejected during moderation/processing";
+            throw new Error(`Roblox did not finish the asset: ${reason}`);
           }
           const assetId = assetIdFromOperation(operation);
-          if (!assetId) throw new Error("Roblox menyiapkan operasi tanpa Asset ID.");
+          if (!assetId) throw new Error("Roblox completed the operation without an Asset ID.");
           return String(assetId);
         }
       } catch (error) {
@@ -132,7 +132,7 @@ export function createRobloxUploader(config = {}) {
       }
       if (attempt < attempts - 1) await sleep(intervalMs);
     }
-    throw new Error("Roblox masih memproses atau sambungan terganggu. Semak Creator Dashboard sebentar lagi.");
+    throw new Error("Roblox is still processing or the connection was interrupted. Check Creator Dashboard shortly.");
   }
 
   return { configured, creatorType, creatorId, upload, waitForAsset };

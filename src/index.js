@@ -43,13 +43,13 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.8.5";
+const BOT_VERSION = "2.8.8";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/oauth/roblox/callback` : "");
-if (!token) throw new Error("DISCORD_TOKEN belum ditetapkan dalam fail .env.");
-if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg atau FFprobe tidak tersedia.");
+if (!token) throw new Error("DISCORD_TOKEN is not set in .env.");
+if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg or FFprobe is not available.");
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const defaultRoblox = createRobloxUploader({
@@ -94,7 +94,7 @@ let youtubeReady = false;
 let youtubeToolVersion = null;
 
 client.once(Events.ClientReady, async (readyClient) => {
-  console.log(`Bot aktif sebagai ${readyClient.user.tag}`);
+  console.log(`Bot is online as ${readyClient.user.tag}`);
   try {
     const application = await readyClient.application.fetch();
     if (application.owner?.id) defaultUploaderUsers.add(application.owner.id);
@@ -104,7 +104,7 @@ client.once(Events.ClientReady, async (readyClient) => {
       }
     }
   } catch (error) {
-    console.warn("Tidak dapat membaca owner app Discord:", error instanceof Error ? error.message : error);
+    console.warn("Could not read Discord app owner:", error instanceof Error ? error.message : error);
   }
 });
 
@@ -119,10 +119,10 @@ client.on(Events.GuildCreate, (guild) => {
   if (!channel?.send) return;
   void channel.send({
     content: [
-      "Terima kasih invite bot audio Roblox.",
-      "Sebelum upload digunakan di server ini, admin buka `/menu` dahulu.",
-      "Bot akan minta `ROBLOX_API_KEY`, `CREATOR_TYPE` dan `CREATOR_ID` server ini.",
-      "Selepas setup siap, `/menu` akan buka pilihan upload biasa."
+      "Thanks for inviting the Roblox audio bot.",
+      "Before uploads can be used here, an admin should open `/menu` first.",
+      "The bot will ask for this server's `ROBLOX_API_KEY`, `CREATOR_TYPE`, and `CREATOR_ID`.",
+      "After setup is complete, `/menu` will show the normal upload options."
     ].join("\n"),
     allowedMentions: { parse: [] }
   }).catch(() => {});
@@ -132,10 +132,10 @@ void checkYouTubeTool(ytDlpPath)
   .then((version) => {
     youtubeReady = true;
     youtubeToolVersion = version;
-    console.log(`YouTube downloader aktif: yt-dlp ${version}`);
+    console.log(`YouTube downloader ready: yt-dlp ${version}`);
   })
   .catch((error) => {
-    console.error("YouTube downloader tidak tersedia:", error.message);
+    console.error("YouTube downloader is not available:", error.message);
   });
 
 function jobFileCount(job) {
@@ -155,7 +155,7 @@ function pendingFileCountForUser(discordUserId) {
 }
 
 function errorMessage(error) {
-  return error instanceof Error ? error.message : "Ralat tidak diketahui.";
+  return error instanceof Error ? error.message : "Unknown error.";
 }
 
 function safeDiscordText(value) {
@@ -204,7 +204,7 @@ function resolveUploadTarget(interaction) {
         creatorType: guildConfig.creatorType,
         creatorId: guildConfig.creatorId
       }),
-      label: `${guildConfig.creatorType} ${guildConfig.creatorId} (server ini)`
+      label: `${guildConfig.creatorType} ${guildConfig.creatorId} (this server)`
     };
   }
   if (canUseDefaultRoblox(interaction)) {
@@ -226,7 +226,7 @@ function resolveUploadTarget(interaction) {
         accessTokenProvider: () => robloxOAuth.getAccessToken(interaction.user.id)
       }),
       label: guildConfig
-        ? `${creatorType} ${creatorId} (server ini)`
+        ? `${creatorType} ${creatorId} (this server)`
         : `${profile.username} (${profile.robloxUserId})`
     };
   }
@@ -236,8 +236,8 @@ function resolveUploadTarget(interaction) {
 async function replyUploadTargetRequired(interaction) {
   const guildConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
   const content = guildConfig && !guildConfig.apiKeyConfigured
-    ? "❌ Server ini ada creator ID, tapi belum ada ROBLOX_API_KEY. Admin tekan **Setup Roblox** dalam `/menu` untuk isi API key."
-    : "❌ Server ini belum setup Roblox API key. Admin buka `/menu`, paste ROBLOX_API_KEY, pilih Group/User, dan isi CREATOR_ID.";
+    ? "❌ This server has a creator ID, but no ROBLOX_API_KEY yet. An admin can open `/menu` and press **Setup Roblox** to add it."
+    : "❌ This server has not set up a Roblox API key yet. An admin should open `/menu`, paste ROBLOX_API_KEY, choose Group/User, and enter CREATOR_ID.";
   await interaction.reply({
     content,
     components: robloxOAuth.configured ? makeRobloxConnectButton(interaction.user.id) : [],
@@ -250,11 +250,11 @@ function quickUploadComponents(requestId) {
   return [new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`quick-upload:${requestId}:confirm`)
-      .setLabel("Saya ada hak — Upload")
+      .setLabel("I have rights - Upload")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`quick-upload:${requestId}:cancel`)
-      .setLabel("Batal")
+      .setLabel("Cancel")
       .setStyle(ButtonStyle.Secondary)
   )];
 }
@@ -264,44 +264,44 @@ async function processConversionJob({ interaction, attachments, quality, normali
   let workDir;
 
   try {
-    await interaction.editReply("⏬ Memuat turun audio…");
+    await interaction.editReply("⏬ Downloading audio...");
     workDir = await mkdtemp(join(tmpdir(), "roblox-audio-"));
     const inputPath = join(workDir, `${randomUUID()}${extname(attachment.name || ".audio")}`);
     const outputName = `${safeBaseName(attachment.name)}-roblox.ogg`;
     const outputPath = join(workDir, outputName);
 
     await downloadAttachment(attachment, inputPath);
-    await interaction.editReply("🔎 Memeriksa durasi dan format audio…");
+    await interaction.editReply("🔎 Checking audio duration and format...");
     await inspectAudio(ffprobeStatic.path, inputPath, { speed });
-    await interaction.editReply(`🎛️ Menukar audio (${quality}, ${normalize ? "normalize" : "mix asal"}, ${speedText(speed)})…`);
+    await interaction.editReply(`🎛️ Converting audio (${quality}, ${normalize ? "normalize" : "preserve mix"}, ${speedText(speed)})...`);
     await convertAudio(ffmpegPath, inputPath, outputPath, { quality, normalize, speed });
 
     let effectiveQuality = quality;
     let outputStat = await stat(outputPath);
     if (outputStat.size > DISCORD_SAFE_MAX_BYTES && quality !== "compact") {
-      await interaction.editReply("📦 Output terlalu besar untuk Discord; mengoptimumkan bitrate…");
+      await interaction.editReply("📦 Output is too large for Discord; optimizing bitrate...");
       effectiveQuality = "compact";
       await convertAudio(ffmpegPath, inputPath, outputPath, { quality: effectiveQuality, normalize, speed });
       outputStat = await stat(outputPath);
     }
     const output = await inspectConvertedAudio(ffprobeStatic.path, outputPath);
     if (outputStat.size > DISCORD_SAFE_MAX_BYTES) {
-      throw new Error("Fail siap melebihi had penghantaran Discord walaupun sudah dioptimumkan.");
+      throw new Error("The finished file is still over Discord's upload limit after optimization.");
     }
 
-    await interaction.editReply("📤 Menghantar fail siap…");
+    await interaction.editReply("📤 Sending the finished file...");
     await interaction.editReply({
       content: [
-        `✅ Siap: OGG stereo 48 kHz · ${(output.duration / 60).toFixed(2)} minit · ${(output.size / 1024 / 1024).toFixed(2)} MB.`,
-        `Kualiti: ${effectiveQuality}${normalize ? " · loudness dinormalisasi" : " · mix asal dikekalkan"} · speed ${speedText(speed)}.`,
-        "Upload hanya jika anda memiliki atau mempunyai lesen untuk audio ini. Kelulusan moderation Roblox tidak dijamin."
+        `✅ Done: 48 kHz stereo OGG · ${(output.duration / 60).toFixed(2)} minutes · ${(output.size / 1024 / 1024).toFixed(2)} MB.`,
+        `Quality: ${effectiveQuality}${normalize ? " · loudness normalized" : " · original mix preserved"} · speed ${speedText(speed)}.`,
+        "Upload only audio you own or are licensed to use. Roblox moderation approval is not guaranteed."
       ].join("\n"),
       files: [{ attachment: outputPath, name: outputName }],
       allowedMentions: { parse: [] }
     });
   } catch (error) {
     await interaction.editReply({
-      content: `❌ Tak dapat memproses audio: ${errorMessage(error)}`,
+      content: `❌ Could not process audio: ${errorMessage(error)}`,
       files: [],
       allowedMentions: { parse: [] }
     });
@@ -317,20 +317,20 @@ async function startUploadOne({ interaction, attachment, index, total, requested
     : assetDisplayName(attachment.name);
 
   try {
-    await editStatus(interaction, `⏬ [${index}/${total}] Memuat turun **${safeDiscordText(attachment.name)}**…`);
+    await editStatus(interaction, `⏬ [${index}/${total}] Downloading **${safeDiscordText(attachment.name)}**...`);
     workDir = await mkdtemp(join(tmpdir(), "roblox-upload-"));
     const inputPath = join(workDir, `${randomUUID()}${extname(attachment.name || ".audio")}`);
     const outputName = `${safeBaseName(attachment.name)}-roblox.ogg`;
     const outputPath = join(workDir, outputName);
 
     await downloadAttachment(attachment, inputPath);
-    await editStatus(interaction, `🔎 [${index}/${total}] Memeriksa **${safeDiscordText(attachment.name)}**…`);
+    await editStatus(interaction, `🔎 [${index}/${total}] Checking **${safeDiscordText(attachment.name)}**...`);
     await inspectAudio(ffprobeStatic.path, inputPath, { speed });
-    await editStatus(interaction, `🎛️ [${index}/${total}] Menukar ke OGG high quality, loudness sama, speed ${speedText(speed)}…`);
+    await editStatus(interaction, `🎛️ [${index}/${total}] Converting to high quality OGG, normalized loudness, speed ${speedText(speed)}...`);
     await convertAudio(ffmpegPath, inputPath, outputPath, { quality: "high", normalize: true, speed });
     await inspectConvertedAudio(ffprobeStatic.path, outputPath);
 
-    await editStatus(interaction, `☁️ [${index}/${total}] Upload **${safeDiscordText(displayName)}** ke Roblox…`);
+    await editStatus(interaction, `☁️ [${index}/${total}] Uploading **${safeDiscordText(displayName)}** to Roblox...`);
     const operationPath = await uploader.upload({
       filePath: outputPath,
       fileName: outputName,
@@ -347,10 +347,10 @@ async function replyWithUploadResults(interaction, results) {
   const successful = results.filter((result) => result.assetId);
   const failed = results.filter((result) => result.error);
   const summary = [
-    `${successful.length ? "✅" : "❌"} Selesai: ${successful.length}/${results.length} upload berjaya.`,
+    `${successful.length ? "✅" : "❌"} Finished: ${successful.length}/${results.length} uploads succeeded.`,
     ...successful.map((result) => `✅ ${safeDiscordText(result.name)} — **${result.assetId}**`),
     ...failed.map((result) => `❌ ${safeDiscordText(result.name)} — ${safeDiscordText(result.error)}`),
-    successful.length ? "Fail JSON dan Lua dilampirkan. Gunakan audio hanya mengikut hak/lesen anda." : "Tiada aset berjaya diupload."
+    successful.length ? "JSON and Lua files are attached. Use audio only according to your rights/license." : "No assets were uploaded successfully."
   ];
   const files = [];
   if (successful.length) {
@@ -401,7 +401,7 @@ async function processUploadJob({ interaction, attachments, upload, uploader, sp
   if (started.length) {
     await editStatus(
       interaction,
-      `⏳ Menunggu Roblox memproses ${started.length} audio secara serentak…`
+      `⏳ Waiting for Roblox to process ${started.length} audio file(s)...`
     );
     const completed = await Promise.all(started.map(async (item) => {
       try {
@@ -423,27 +423,27 @@ async function processDirectAudioUploadJob({ interaction, directAudio, uploader 
   let displayName = "Audio Link";
 
   try {
-    await editStatus(interaction, "🌐 Membaca link dan memuat turun fail audio…");
+    await editStatus(interaction, "🌐 Reading the link and downloading the audio file...");
     workDir = await mkdtemp(join(tmpdir(), "roblox-direct-audio-"));
     const source = await downloadDirectAudio({ url: directAudio.url, directory: workDir });
     displayName = assetDisplayName(source.name);
     const outputName = `${safeBaseName(source.name)}-roblox.ogg`;
     const outputPath = join(workDir, outputName);
 
-    await editStatus(interaction, `🔎 Memeriksa **${safeDiscordText(displayName)}**…`);
+    await editStatus(interaction, `🔎 Checking **${safeDiscordText(displayName)}**...`);
     await inspectAudio(ffprobeStatic.path, source.path, { speed: directAudio.speed });
-    await editStatus(interaction, `🎛️ Mengedit **${safeDiscordText(displayName)}** dengan tetapan Roblox, speed ${speedText(directAudio.speed)}…`);
+    await editStatus(interaction, `🎛️ Editing **${safeDiscordText(displayName)}** with Roblox settings, speed ${speedText(directAudio.speed)}...`);
     await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: true, speed: directAudio.speed });
     await inspectConvertedAudio(ffprobeStatic.path, outputPath);
 
-    await editStatus(interaction, `☁️ Upload **${safeDiscordText(displayName)}** ke Roblox…`);
+    await editStatus(interaction, `☁️ Uploading **${safeDiscordText(displayName)}** to Roblox...`);
     const operationPath = await uploader.upload({
       filePath: outputPath,
       fileName: outputName,
       displayName,
       description: "Audio from a user-confirmed licensed direct source"
     });
-    await editStatus(interaction, "⏳ Roblox sedang memproses audio…");
+    await editStatus(interaction, "⏳ Roblox is processing the audio...");
     const assetId = await uploader.waitForAsset(operationPath);
     await replyWithUploadResults(interaction, [{ index: 1, name: displayName, assetId }]);
   } catch (error) {
@@ -462,7 +462,7 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
   let displayName = "YouTube Audio";
 
   try {
-    await editStatus(interaction, "🔗 Membaca link dan memuat turun audio YouTube sebagai MP3…");
+    await editStatus(interaction, "🔗 Reading the link and downloading YouTube audio as MP3...");
     workDir = await mkdtemp(join(tmpdir(), "roblox-youtube-"));
     const mp3Path = join(workDir, "youtube-source.mp3");
     const outputName = "youtube-roblox.ogg";
@@ -475,29 +475,29 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
     });
     displayName = assetDisplayName(source.title, { stripExtension: false });
 
-    await editStatus(interaction, `🎛️ Mengedit **${safeDiscordText(displayName)}** dengan tetapan Roblox…`);
+    await editStatus(interaction, `🎛️ Editing **${safeDiscordText(displayName)}** with Roblox settings...`);
     await inspectAudio(ffprobeStatic.path, source.path, { speed: youtube.speed });
     await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: true, speed: youtube.speed });
     await inspectConvertedAudio(ffprobeStatic.path, outputPath);
 
-    await editStatus(interaction, `☁️ Upload **${safeDiscordText(displayName)}** ke Roblox…`);
+    await editStatus(interaction, `☁️ Uploading **${safeDiscordText(displayName)}** to Roblox...`);
     const operationPath = await uploader.upload({
       filePath: outputPath,
       fileName: outputName,
       displayName,
       description: "Audio from a user-confirmed licensed YouTube source"
     });
-    await editStatus(interaction, "⏳ Roblox sedang memproses audio…");
+    await editStatus(interaction, "⏳ Roblox is processing the audio...");
     const assetId = await uploader.waitForAsset(operationPath);
     await replyWithUploadResults(interaction, [{ index: 1, name: displayName, assetId }]);
   } catch (error) {
     const message = errorMessage(error);
-    if (/YouTube meminta login|menyekat alamat server cloud/i.test(message)) {
+    if (/YouTube is asking for login|blocking the cloud server address/i.test(message)) {
       await interaction.editReply({
         content: [
-          "⚠️ **YouTube menyekat permintaan server cloud.**",
-          "Bot tidak akan meminta login atau cookies anda.",
-          "Tekan butang di bawah dan pilih MP3/WAV asal; bot akan terus auto-edit dan upload ke Roblox."
+          "⚠️ **YouTube blocked the cloud server request.**",
+          "The bot will not ask for your login or cookies.",
+          "Press the button below and upload the original MP3/WAV; the bot will auto-edit and upload it to Roblox."
         ].join("\n"),
         files: [],
         components: youtubeFallbackComponents(),
@@ -535,7 +535,7 @@ async function drainQueue() {
       } catch (error) {
         console.error("Audio job error:", error);
         await job.interaction.editReply({
-          content: `❌ Kerja audio gagal: ${errorMessage(error)}`,
+          content: `❌ Audio job failed: ${errorMessage(error)}`,
           files: [],
           allowedMentions: { parse: [] }
         }).catch(() => {});
@@ -553,7 +553,7 @@ async function enqueueJob(job) {
   const pendingBefore = pendingFileCount();
   if (pendingBefore + jobFileCount(job) > MAX_PENDING_FILES) {
     await job.interaction.editReply({
-      content: `Queue hampir penuh. Maksimum ${MAX_PENDING_FILES} fail aktif/menunggu; cuba lagi sebentar.`,
+      content: `Queue is almost full. Maximum ${MAX_PENDING_FILES} active/pending files; try again shortly.`,
       components: [],
       allowedMentions: { parse: [] }
     });
@@ -562,7 +562,7 @@ async function enqueueJob(job) {
   const userPending = pendingFileCountForUser(job.interaction.user.id);
   if (userPending + jobFileCount(job) > MAX_PENDING_FILES_PER_USER) {
     await job.interaction.editReply({
-      content: `Queue user penuh. Maksimum ${MAX_PENDING_FILES_PER_USER} fail menunggu untuk setiap user; cuba lagi selepas kerja semasa selesai.`,
+      content: `Your queue is full. Maximum ${MAX_PENDING_FILES_PER_USER} pending files per user; try again after the current job finishes.`,
       components: [],
       allowedMentions: { parse: [] }
     });
@@ -571,7 +571,7 @@ async function enqueueJob(job) {
 
   jobQueue.push(job);
   if (pendingBefore > 0) {
-    await editStatus(job.interaction, `⏳ Masuk queue. Ada ${pendingBefore} fail di hadapan.`);
+    await editStatus(job.interaction, `⏳ Added to queue. ${pendingBefore} file(s) ahead.`);
   }
   void drainQueue();
   return true;
@@ -601,9 +601,9 @@ async function showQuickUploadConfirmation(interaction) {
   try {
     await interaction.reply({
       content: [
-        `🎵 Fail: **${safeDiscordText(attachment.name)}**`,
-        `Bot akan menukar audio speed ${speedText(speed)} dan upload ke Roblox: ${safeDiscordText(target.label)}.`,
-        "Tekan butang hijau untuk mengesahkan anda memiliki atau mempunyai lesen audio ini."
+        `🎵 File: **${safeDiscordText(attachment.name)}**`,
+        `The bot will convert audio at speed ${speedText(speed)} and upload to Roblox: ${safeDiscordText(target.label)}.`,
+        "Press the green button to confirm you own this audio or have a license to use it."
       ].join("\n"),
       components: quickUploadComponents(requestId),
       flags: MessageFlags.Ephemeral,
@@ -617,7 +617,7 @@ async function showQuickUploadConfirmation(interaction) {
   const timer = setTimeout(() => {
     if (!quickUploadConfirmations.delete(requestId)) return;
     void interaction.editReply({
-      content: "⌛ Pengesahan tamat masa. Jalankan `/upload` semula.",
+      content: "⌛ Confirmation timed out. Run `/upload` again.",
       components: [],
       allowedMentions: { parse: [] }
     }).catch(() => {});
@@ -630,14 +630,14 @@ async function showYouTubeConfirmation(interaction) {
   if (!target) return replyUploadTargetRequired(interaction);
   if (!youtubeReady) {
     await interaction.reply({
-      content: "❌ Downloader YouTube belum tersedia. Cuba lagi selepas bot selesai bermula.",
+      content: "❌ The YouTube downloader is not ready yet. Try again after the bot finishes starting.",
       flags: MessageFlags.Ephemeral
     });
     return;
   }
   if (!interaction.options.getBoolean("rights_confirm", true)) {
     await interaction.reply({
-      content: "❌ Upload dibatalkan. Anda mesti memiliki atau mempunyai lesen audio tersebut.",
+      content: "❌ Upload cancelled. You must own this audio or have a license to use it.",
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -653,7 +653,7 @@ async function showYouTubeConfirmation(interaction) {
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  await editStatus(interaction, `⏳ Link diterima. Memulakan auto proses speed ${speedText(speed)} dan upload ke ${safeDiscordText(target.label)}…\n<${url}>`);
+  await editStatus(interaction, `⏳ Link received. Starting auto-process at speed ${speedText(speed)} and uploading to ${safeDiscordText(target.label)}...\n<${url}>`);
   await enqueueJob({ interaction, youtube: { url, speed }, uploader: target.uploader });
 }
 
@@ -664,21 +664,21 @@ async function handleQuickUploadButton(interaction) {
   const [, requestId, action] = match;
   const pending = quickUploadConfirmations.get(requestId);
   if (!pending) {
-    await interaction.reply({ content: "⌛ Permintaan ini sudah tamat atau digunakan.", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "⌛ This request expired or was already used.", flags: MessageFlags.Ephemeral });
     return true;
   }
   if (interaction.user.id !== pending.ownerId) {
-    await interaction.reply({ content: "❌ Butang ini bukan untuk anda.", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "❌ This button is not for you.", flags: MessageFlags.Ephemeral });
     return true;
   }
 
   quickUploadConfirmations.delete(requestId);
   if (action === "cancel") {
-    await interaction.update({ content: "Upload dibatalkan.", components: [], allowedMentions: { parse: [] } });
+    await interaction.update({ content: "Upload cancelled.", components: [], allowedMentions: { parse: [] } });
     return true;
   }
 
-  await interaction.update({ content: "⏳ Menyediakan upload…", components: [], allowedMentions: { parse: [] } });
+  await interaction.update({ content: "⏳ Preparing upload...", components: [], allowedMentions: { parse: [] } });
   if (pending.youtube) {
     await enqueueJob({
       interaction: pending.interaction,
@@ -710,8 +710,8 @@ async function showRobloxAccount(interaction) {
   if (!robloxOAuth.configured) {
     await interaction.reply({
       content: [
-        "❌ Server ini belum ada Roblox API key sendiri.",
-        "Minta admin server buka `/menu` atau tekan **Setup Roblox** untuk isi `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, dan isi `CREATOR_ID`."
+        "❌ This server does not have its own Roblox API key yet.",
+        "Ask a server admin to open `/menu` or press **Setup Roblox** to enter `ROBLOX_API_KEY`, choose `CREATOR_TYPE`, and enter `CREATOR_ID`."
       ].join("\n"),
       flags: MessageFlags.Ephemeral
     });
@@ -721,9 +721,9 @@ async function showRobloxAccount(interaction) {
   if (profile) {
     await interaction.reply({
       content: [
-        "✅ Akaun Roblox anda sudah disambung.",
+        "✅ Your Roblox account is connected.",
         `Roblox: **${safeDiscordText(profile.username)}** (${profile.robloxUserId})`,
-        "Upload baru akan masuk ke akaun Roblox ini, bukan community/group default."
+        "New uploads will go to this Roblox account, not the default community/group."
       ].join("\n"),
       components: disconnectRobloxComponents(),
       flags: MessageFlags.Ephemeral,
@@ -733,8 +733,8 @@ async function showRobloxAccount(interaction) {
   }
   await interaction.reply({
     content: [
-      "Sambung akaun Roblox anda untuk upload ke akaun sendiri.",
-      "Bot hanya minta izin rasmi `asset:write`; token disimpan terenkripsi pada server."
+      "Connect your Roblox account to upload to your own account.",
+      "The bot only asks for the official `asset:write` permission; tokens are stored encrypted on the server."
     ].join("\n"),
     components: makeRobloxConnectButton(interaction.user.id),
     flags: MessageFlags.Ephemeral,
@@ -745,12 +745,12 @@ async function showRobloxAccount(interaction) {
 async function handleRobloxAccountButton(interaction) {
   if (interaction.customId !== "roblox-account:disconnect") return false;
   if (!robloxOAuth.configured) {
-    await interaction.reply({ content: "❌ Roblox OAuth belum dikonfigurasi.", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "❌ Roblox OAuth is not configured.", flags: MessageFlags.Ephemeral });
     return true;
   }
   await robloxOAuth.disconnect(interaction.user.id);
   await interaction.update({
-    content: "✅ Akaun Roblox anda sudah diputuskan daripada bot ini.",
+    content: "✅ Your Roblox account has been disconnected from this bot.",
     components: [],
     allowedMentions: { parse: [] }
   });
@@ -764,11 +764,11 @@ function ensureGuildAdmin(interaction) {
 
 async function showRobloxServer(interaction) {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "❌ Command ini hanya boleh digunakan dalam server Discord.", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "❌ This command can only be used in a Discord server.", flags: MessageFlags.Ephemeral });
     return;
   }
   if (!ensureGuildAdmin(interaction)) {
-    await interaction.reply({ content: "❌ Hanya admin dengan permission Manage Server boleh ubah setup Roblox server ini.", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "❌ Only admins with Manage Server permission can change this server's Roblox setup.", flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -778,10 +778,10 @@ async function showRobloxServer(interaction) {
     await interaction.reply({
       content: config
         ? [
-            `✅ Server ini diset ke Roblox ${config.creatorType} ${config.creatorId}.`,
-            `API key: ${config.apiKeyConfigured ? "sudah ada" : "belum ada"}`
+            `✅ This server is set to Roblox ${config.creatorType} ${config.creatorId}.`,
+            `API key: ${config.apiKeyConfigured ? "configured" : "not configured"}`
           ].join("\n")
-        : "⚠️ Server ini belum ada creator Roblox. Guna `/roblox-server set` dahulu.",
+        : "⚠️ This server does not have a Roblox creator yet. Use `/roblox-server set` first.",
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -790,7 +790,7 @@ async function showRobloxServer(interaction) {
   if (subcommand === "clear") {
     await guildConfigStore.delete(interaction.guildId);
     await interaction.reply({
-      content: "✅ Setup creator Roblox server ini sudah dipadam. Upload user biasa akan disekat sampai admin set semula.",
+      content: "✅ This server's Roblox creator setup has been cleared. Normal user uploads are blocked until an admin sets it again.",
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -807,10 +807,10 @@ async function showRobloxServer(interaction) {
   });
   await interaction.reply({
     content: [
-      `✅ Server ini sekarang diset ke Roblox ${saved.creatorType} ${saved.creatorId}.`,
+      `✅ This server is now set to Roblox ${saved.creatorType} ${saved.creatorId}.`,
       saved.apiKeyConfigured
-        ? "API key server ini sudah tersimpan encrypted."
-        : "API key belum diset. Admin boleh tekan **Setup Roblox** dalam `/menu` untuk isi API key."
+        ? "This server's API key is stored encrypted."
+        : "API key is not set yet. An admin can press **Setup Roblox** in `/menu` to add the API key."
     ].join("\n"),
     flags: MessageFlags.Ephemeral
   });
@@ -827,23 +827,23 @@ async function handleMenuButton(interaction) {
   if (interaction.customId === "music-menu:help") {
     await interaction.reply({
       content: [
-        "🎵 **Cara guna menu audio Roblox**",
+        "🎵 **How to use the Roblox audio menu**",
         "**Developer/admin server:**",
-        "1. Buat Roblox Open Cloud API key di Creator Dashboard > Credentials.",
-        "2. Permission wajib: Assets `asset:read` dan `asset:write`.",
-        "3. Selepas invite bot, admin buka `/menu`.",
-        "4. Jika server belum setup, bot terus buka borang `ROBLOX_API_KEY`, `CREATOR_TYPE`, `CREATOR_ID`.",
-        "5. Jika pilih `Group`, `CREATOR_ID` ialah Group ID dan API key mesti ada access ke group itu.",
-        "6. Jika pilih `User`, `CREATOR_ID` ialah User ID pemilik API key.",
-        "7. Check setup: `/roblox-server status`. Ubah semula: tekan **Setup Roblox**.",
+        "1. Create a Roblox Open Cloud API key in Creator Dashboard > Credentials.",
+        "2. Required permissions: Assets `asset:read` and `asset:write`.",
+        "3. After inviting the bot, an admin opens `/menu`.",
+        "4. If the server is not set up, the bot opens a form for `ROBLOX_API_KEY`, `CREATOR_TYPE`, and `CREATOR_ID`.",
+        "5. If you choose `Group`, `CREATOR_ID` is the Group ID and the API key must have access to that group.",
+        "6. If you choose `User`, `CREATOR_ID` is the User ID that owns the API key.",
+        "7. Check setup: `/roblox-server status`. Change it again: press **Setup Roblox**.",
         "",
-        "**User biasa:**",
-        "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
-        "2. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
-        "3. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "**Regular users:**",
+        "1. Press **Upload File** for 1-5 files, **Paste Link** for a public audio file link, or **YouTube** for one public video.",
+        "2. Tick the confirmation that you own the audio or have a license to use it.",
+        "3. Submit the form and wait for the bot to return the Asset ID, JSON, and Lua.",
         "",
-        "Link audio menyokong Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Link YouTube mesti menggunakan pilihan YouTube.",
-        "Semua upload masih melalui moderation Roblox. Playlist, live, video private dan DRM tidak disokong."
+        "Audio links support Dropbox, Google Drive, Discord CDN, Cloudflare R2, and Amazon S3. YouTube links must use the YouTube option.",
+        "All uploads still go through Roblox moderation. Playlists, live streams, private videos, and DRM are not supported."
       ].join("\n"),
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
@@ -858,7 +858,7 @@ async function handleMenuButton(interaction) {
   }
   if (interaction.customId === "music-menu:youtube" && !youtubeReady) {
     await interaction.reply({
-      content: "❌ Downloader YouTube belum tersedia. Cuba lagi selepas bot selesai bermula.",
+      content: "❌ The YouTube downloader is not ready yet. Try again after the bot finishes starting.",
       flags: MessageFlags.Ephemeral
     });
     return true;
@@ -877,7 +877,7 @@ async function handleMenuModal(interaction) {
   if (interaction.customId === "music-menu:server-setup-modal") {
     if (!ensureGuildAdmin(interaction)) {
       await interaction.reply({
-        content: "❌ Hanya admin dengan permission Manage Server boleh set creator Roblox server ini.",
+        content: "❌ Only admins with Manage Server permission can set this server's Roblox creator.",
         flags: MessageFlags.Ephemeral
       });
       return true;
@@ -891,19 +891,19 @@ async function handleMenuModal(interaction) {
       });
       await interaction.reply({
         content: [
-          `✅ Server ini sekarang diset ke Roblox ${saved.creatorType} ${saved.creatorId}.`,
+          `✅ This server is now set to Roblox ${saved.creatorType} ${saved.creatorId}.`,
           saved.creatorType === "Group"
-            ? "Ini bermaksud upload akan masuk ke Roblox group/community ID itu."
-            : "Ini bermaksud upload akan masuk ke Roblox user creator ID itu.",
-          "ROBLOX_API_KEY server ini sudah tersimpan encrypted.",
-          "Gunakan `/roblox-server status` untuk check semula ID ini."
+            ? "Uploads will go to that Roblox group/community ID."
+            : "Uploads will go to that Roblox user creator ID.",
+          "This server's ROBLOX_API_KEY is stored encrypted.",
+          "Use `/roblox-server status` to double-check this ID."
         ].join("\n"),
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
     } catch (error) {
       await interaction.reply({
-        content: `❌ Setup gagal: ${errorMessage(error)}`,
+        content: `❌ Setup failed: ${errorMessage(error)}`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -923,7 +923,7 @@ async function handleMenuModal(interaction) {
   }
   if (interaction.fields.getCheckbox("rights_confirm") !== true) {
     await interaction.reply({
-      content: "❌ Upload dibatalkan. Anda mesti memiliki atau mempunyai lesen audio tersebut.",
+      content: "❌ Upload cancelled. You must own this audio or have a license to use it.",
       flags: MessageFlags.Ephemeral
     });
     return true;
@@ -972,7 +972,7 @@ async function handleMenuModal(interaction) {
 
   if (!youtubeReady) {
     await interaction.reply({
-      content: "❌ Downloader YouTube belum tersedia. Cuba lagi selepas bot selesai bermula.",
+      content: "❌ The YouTube downloader is not ready yet. Try again after the bot finishes starting.",
       flags: MessageFlags.Ephemeral
     });
     return true;
@@ -1014,20 +1014,20 @@ async function handleInteraction(interaction) {
         return;
       }
       await interaction.reply({
-        content: "❌ Server ini belum setup Roblox. Minta admin buka `/menu` untuk isi `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, dan isi `CREATOR_ID`.",
+        content: "❌ This server has not set up Roblox yet. Ask an admin to open `/menu`, enter `ROBLOX_API_KEY`, choose `CREATOR_TYPE`, and enter `CREATOR_ID`.",
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
       return;
     }
     const destinationLine = serverConfig
-      ? `Destinasi: Roblox ${serverConfig.creatorType} ${serverConfig.creatorId}.`
-      : "Destinasi: default bot.";
+      ? `Destination: Roblox ${serverConfig.creatorType} ${serverConfig.creatorId}.`
+      : "Destination: bot default.";
     await interaction.reply({
       content: [
         "🎵 **Menu Audio Roblox**",
         destinationLine,
-        "Pilih cara upload di bawah. Bot akan convert, edit, pilih speed, dan upload ke Roblox selepas anda confirm hak audio."
+        "Choose an upload method below. The bot will convert, edit, apply speed, and upload to Roblox after you confirm audio rights."
       ].join("\n"),
       components: mainMenuComponents(),
       flags: MessageFlags.Ephemeral,
@@ -1059,26 +1059,26 @@ async function handleInteraction(interaction) {
   if (interaction.commandName === "roblox-help") {
     await interaction.reply({
       content: [
-        "🎵 **Cara guna bot audio Roblox**",
-        "**Untuk developer/admin server:**",
-        "1. Buat API key di Roblox Creator Dashboard > Credentials.",
-        "2. Permission API key: Assets `asset:read` dan `asset:write`.",
-        "3. Selepas invite bot, admin buka `/menu`.",
-        "4. Jika belum setup, bot terus buka borang untuk `ROBLOX_API_KEY`, `CREATOR_TYPE`, dan `CREATOR_ID`.",
-        "5. Pilih `Group` + Group ID untuk upload ke group/community.",
-        "6. Pilih `User` + User ID untuk upload ke user creator.",
-        "7. Untuk group, API key mesti diberi access ke Group ID itu dalam Roblox.",
-        "8. Guna `/roblox-server status` untuk confirm. Guna `/roblox-server clear` kalau tersalah set.",
+        "🎵 **How to use the Roblox audio bot**",
+        "**For server developers/admins:**",
+        "1. Create an API key in Roblox Creator Dashboard > Credentials.",
+        "2. API key permissions: Assets `asset:read` and `asset:write`.",
+        "3. After inviting the bot, an admin opens `/menu`.",
+        "4. If not set up yet, the bot opens a form for `ROBLOX_API_KEY`, `CREATOR_TYPE`, and `CREATOR_ID`.",
+        "5. Choose `Group` + Group ID to upload to a group/community.",
+        "6. Choose `User` + User ID to upload to a user creator.",
+        "7. For groups, the API key must be given access to that Group ID in Roblox.",
+        "8. Use `/roblox-server status` to confirm. Use `/roblox-server clear` if the setup is wrong.",
         "",
-        "**Untuk user biasa:**",
-        "**Paling mudah:** taip `/menu`, kemudian tekan **Upload Fail**, **Paste Link** atau **YouTube**.",
-        "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
+        "**For regular users:**",
+        "**Easiest way:** type `/menu`, then press **Upload File**, **Paste Link**, or **YouTube**.",
+        "Fill the short form, tick the audio rights confirmation, then submit.",
         "",
-        "Menu menyokong 1–5 fail, satu link fail audio public, atau satu link video YouTube public.",
-        "Pilih speed `1x`, `1.5x` atau `2x`, kemudian tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "The menu supports 1-5 files, one public audio file link, or one public YouTube video link.",
+        "Choose speed `1x`, `1.5x`, or `2x`, then wait for the bot to return the Asset ID, JSON, and Lua.",
         "",
-        "Arahan lama `/upload`, `/yt` dan `/roblox-upload` masih boleh digunakan.",
-        "Gunakan audio yang anda miliki atau mempunyai lesen. Semua upload tetap melalui moderation Roblox."
+        "Older commands `/upload`, `/yt`, and `/roblox-upload` still work.",
+        "Use audio you own or are licensed to use. Every upload still goes through Roblox moderation."
       ].join("\n"),
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
@@ -1091,7 +1091,7 @@ async function handleInteraction(interaction) {
   if (directUpload && !target) return replyUploadTargetRequired(interaction);
   if (directUpload && !interaction.options.getBoolean("rights_confirm", true)) {
     await interaction.reply({
-      content: "❌ Upload dibatalkan. Anda mesti memiliki atau mempunyai lesen semua audio tersebut.",
+      content: "❌ Upload cancelled. You must own every audio file or have a license to use it.",
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -1130,7 +1130,7 @@ client.on(Events.InteractionCreate, (interaction) => {
     console.error("Interaction error:", error);
     if (!interaction.isRepliable()) return;
     const payload = {
-      content: "❌ Bot mengalami ralat sementara. Cuba semula sebentar lagi.",
+      content: "❌ The bot hit a temporary error. Try again shortly.",
       components: [],
       allowedMentions: { parse: [] }
     };
@@ -1167,7 +1167,7 @@ const httpServer = startServer({
 });
 
 async function shutdown(signal) {
-  console.log(`${signal} diterima; menutup bot dengan selamat.`);
+  console.log(`${signal} received; shutting down safely.`);
   client.destroy();
   httpServer.close();
   process.exit(0);

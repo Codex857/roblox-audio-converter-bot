@@ -40,11 +40,11 @@ test("direct audio link validation blocks unsafe or unsupported targets", () => 
   assert.throws(() => normalizeDirectAudioUrl("http://cdn.discordapp.com/song.mp3"), /HTTPS/);
   assert.throws(() => normalizeDirectAudioUrl("https://user:pass@cdn.discordapp.com/song.mp3"), /HTTPS/);
   assert.throws(() => normalizeDirectAudioUrl("https://cdn.discordapp.com:444/song.mp3"), /HTTPS/);
-  assert.throws(() => normalizeDirectAudioUrl("https://127.0.0.1/song.mp3"), /dalaman|IP/);
-  assert.throws(() => normalizeDirectAudioUrl("https://localhost/song.mp3"), /dalaman|IP/);
-  assert.throws(() => normalizeDirectAudioUrl("https://youtu.be/dQw4w9WgXcQ"), /tidak disokong/);
-  assert.throws(() => normalizeDirectAudioUrl("https://example.com/song.mp3"), /tidak disokong/);
-  assert.throws(() => normalizeDirectAudioUrl("https://cdn.discordapp.com/file.exe"), /fail MP3/);
+  assert.throws(() => normalizeDirectAudioUrl("https://127.0.0.1/song.mp3"), /Internal hosts|IP/);
+  assert.throws(() => normalizeDirectAudioUrl("https://localhost/song.mp3"), /Internal hosts|IP/);
+  assert.throws(() => normalizeDirectAudioUrl("https://youtu.be/dQw4w9WgXcQ"), /Unsupported link host/);
+  assert.throws(() => normalizeDirectAudioUrl("https://example.com/song.mp3"), /Unsupported link host/);
+  assert.throws(() => normalizeDirectAudioUrl("https://cdn.discordapp.com/file.exe"), /MP3/);
 });
 
 test("direct audio downloader follows only safe redirects and stores valid audio", async () => {
@@ -99,7 +99,7 @@ test("direct audio downloader rejects unsafe redirects, private DNS and web page
           headers: { location: "https://evil.example/song.mp3" }
         })
       }),
-      /Host link tidak disokong/
+      /Unsupported link host/
     );
 
     await assert.rejects(
@@ -109,7 +109,7 @@ test("direct audio downloader rejects unsafe redirects, private DNS and web page
         lookupImpl: async () => [{ address: "127.0.0.1", family: 4 }],
         fetchImpl: async () => { throw new Error("fetch must not run"); }
       }),
-      /rangkaian dalaman/
+      /internal network/
     );
 
     await assert.rejects(
@@ -122,7 +122,7 @@ test("direct audio downloader rejects unsafe redirects, private DNS and web page
           headers: { "content-type": "text/html" }
         })
       }),
-      /halaman web/
+      /web page/
     );
 
     await assert.rejects(

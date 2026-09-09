@@ -33,7 +33,7 @@ function safeProfile(profile) {
 }
 
 function friendlyOAuthError(error) {
-  const message = error instanceof Error ? error.message : "Ralat OAuth Roblox.";
+  const message = error instanceof Error ? error.message : "Roblox OAuth error.";
   return message.replace(/[A-Za-z0-9_-]{24,}/g, "[hidden]");
 }
 
@@ -48,7 +48,7 @@ async function tokenRequest(body) {
   let payload;
   try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
   if (!response.ok) {
-    throw new Error(payload.error_description || payload.error || `Roblox OAuth gagal (HTTP ${response.status}).`);
+    throw new Error(payload.error_description || payload.error || `Roblox OAuth failed (HTTP ${response.status}).`);
   }
   return payload;
 }
@@ -77,7 +77,7 @@ export async function createRobloxOAuth(config = {}) {
   }
 
   function requireConfigured() {
-    if (!isConfigured) throw new Error("Roblox OAuth belum dikonfigurasi oleh pemilik bot.");
+    if (!isConfigured) throw new Error("Roblox OAuth is not configured by the bot owner.");
   }
 
   function createAuthorizationUrl(discordUserId) {
@@ -110,9 +110,9 @@ export async function createRobloxOAuth(config = {}) {
     const text = await response.text();
     let body;
     try { body = text ? JSON.parse(text) : {}; } catch { body = {}; }
-    if (!response.ok) throw new Error("Roblox tidak dapat mengesahkan akaun OAuth.");
+    if (!response.ok) throw new Error("Roblox could not verify the OAuth account.");
     const robloxUserId = String(body.sub || "");
-    if (!/^\d+$/.test(robloxUserId)) throw new Error("Roblox tidak memulangkan user ID yang sah.");
+    if (!/^\d+$/.test(robloxUserId)) throw new Error("Roblox did not return a valid user ID.");
     return {
       robloxUserId,
       username: body.preferred_username || body.name || "Roblox user"
@@ -125,11 +125,11 @@ export async function createRobloxOAuth(config = {}) {
     const state = url.searchParams.get("state") || "";
     const code = url.searchParams.get("code") || "";
     const error = url.searchParams.get("error") || "";
-    if (error) throw new Error("Sambungan Roblox dibatalkan atau ditolak.");
+    if (error) throw new Error("Roblox connection was cancelled or rejected.");
     const item = pending.get(state);
     pending.delete(state);
-    if (!item || item.expiresAt <= Date.now()) throw new Error("Sesi connect Roblox tamat masa. Cuba sekali lagi.");
-    if (!code) throw new Error("Kod OAuth Roblox tidak diterima.");
+    if (!item || item.expiresAt <= Date.now()) throw new Error("Roblox connection session timed out. Try again.");
+    if (!code) throw new Error("Roblox OAuth code was not received.");
 
     const token = await tokenRequest({
       grant_type: "authorization_code",
@@ -141,11 +141,11 @@ export async function createRobloxOAuth(config = {}) {
     });
     const accessToken = String(token.access_token || "");
     const refreshToken = String(token.refresh_token || "");
-    if (!accessToken || !refreshToken) throw new Error("Token OAuth Roblox tidak lengkap.");
+    if (!accessToken || !refreshToken) throw new Error("Roblox OAuth token is incomplete.");
     const userInfo = await fetchUserInfo(accessToken);
     const existingDiscordId = store.findDiscordIdByRobloxUserId(userInfo.robloxUserId);
     if (existingDiscordId && existingDiscordId !== item.discordUserId) {
-      throw new Error("Akaun Roblox ini sudah disambung kepada Discord user lain.");
+      throw new Error("This Roblox account is already connected to another Discord user.");
     }
     await store.set(item.discordUserId, {
       ...userInfo,
@@ -176,7 +176,7 @@ export async function createRobloxOAuth(config = {}) {
       expiresAt: Date.now() + Math.max(1, Number(token.expires_in || 900)) * 1000,
       updatedAt: new Date().toISOString()
     };
-    if (!next.accessToken || !next.refreshToken) throw new Error("Refresh token Roblox tidak lengkap.");
+    if (!next.accessToken || !next.refreshToken) throw new Error("Roblox refresh token is incomplete.");
     await store.set(discordUserId, next);
     return next.accessToken;
   }
@@ -185,7 +185,7 @@ export async function createRobloxOAuth(config = {}) {
     requireConfigured();
     const id = String(discordUserId);
     const profile = store.get(id);
-    if (!profile) throw new Error("Sila connect akaun Roblox anda dahulu dengan /roblox-account.");
+    if (!profile) throw new Error("Please connect your Roblox account first with /roblox-account.");
     if (profile.expiresAt && profile.expiresAt > Date.now() + 60_000) return profile.accessToken;
     if (!refreshLocks.has(id)) {
       refreshLocks.set(id, refreshProfile(id, profile).finally(() => refreshLocks.delete(id)));

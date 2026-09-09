@@ -1,26 +1,29 @@
 # Discord Roblox Audio Converter
 
-Bot Discord ini menukar audio yang anda miliki atau berlesen kepada satu fail OGG yang memenuhi spesifikasi teknikal Roblox: stereo, 48 kHz, kurang 7 minit dan kurang 20 MB. Ia mengekalkan mix asal (termasuk bass dan vokal), selain resampling dan peak limiter ringan untuk mengelakkan clipping.
+This Discord bot converts audio you own or are licensed to use into Roblox-compatible OGG files: stereo, 48 kHz, under 7 minutes, and under 20 MB. It keeps the original mix as much as possible, including bass and vocals, while applying Roblox-friendly conversion settings.
 
-Versi 2.5 menambah `/menu` sebagai satu pintu utama. Pengguna hanya perlu memilih butang fail atau YouTube, mengisi borang ringkas, mengesahkan hak audio, kemudian bot memprosesnya dan memberikan Asset ID, JSON serta Lua.
+The bot can:
 
-Versi 2.6 mendaftarkan command secara global dan menyokong allowlist beberapa server Discord tanpa membuka quota upload Roblox kepada server yang tidak diluluskan.
+- show one simple `/menu` with buttons instead of confusing commands;
+- accept 1-5 uploaded audio files;
+- accept one public direct audio link from supported hosts;
+- accept one public YouTube link, convert it to MP3, edit it, and upload it when YouTube allows the cloud server request;
+- offer a manual MP3/WAV upload fallback when YouTube blocks the server;
+- upload to Roblox Open Cloud and return the Asset ID, JSON, and Lua output;
+- let each Discord server configure its own Roblox API key, creator type, and creator ID.
 
-Versi 2.7 menambah **Paste Link Audio**: bot memuat turun satu fail audio public daripada host yang disokong, mengesahkan fail, auto-edit, upload ke Roblox, kemudian memberi Asset ID, JSON dan Lua.
+This bot does not include monthly subscriptions, payments, or quotas.
 
-Versi 2.8 menambah pilihan speed `1x`, `1.5x` dan `2x`, serta setup developer per server Discord. Admin server boleh tekan **Akaun Roblox** dalam `/menu`, kemudian isi Roblox Open Cloud API key, pilih `Group` atau `User`, dan isi creator ID server itu.
+Important: this is not a copyright or moderation bypass tool. Converting audio does not give anyone permission to upload music they do not own, and Roblox moderation approval is never guaranteed.
 
-Versi semasa tidak mempunyai bayaran, langganan atau quota bulanan. Akses upload default pemilik masih dikawal menggunakan server dan role Discord.
+## Setup
 
-Bot ini **bukan** alat untuk memintas copyright detection atau moderation. Menukar format tidak memberikan hak untuk memuat naik lagu orang lain dan tidak menjamin Roblox akan menerima sesuatu aset.
-
-## Persediaan
-
-1. Pasang Node.js 20 atau lebih baru.
-2. Cipta Discord Application dan Bot di Discord Developer Portal.
-3. Aktifkan scope `bot` dan `applications.commands` ketika menjemput bot.
-4. Salin `.env.example` kepada `.env`, kemudian masukkan token, application ID, dan test server ID.
-5. Jalankan:
+1. Install Node.js 22.5 or newer.
+2. Create a Discord Application and Bot in the Discord Developer Portal.
+3. Invite the bot with the `bot` and `applications.commands` scopes.
+4. Copy `.env.example` to `.env`.
+5. Add at least `DISCORD_TOKEN` and `DISCORD_CLIENT_ID`.
+6. Run:
 
 ```powershell
 npm install
@@ -28,91 +31,165 @@ npm run register
 npm start
 ```
 
-Untuk bot yang digunakan pada beberapa server, jalankan `npm run register:global` supaya command tersedia pada semua server sekarang dan akan datang. `npm run register:guilds` hanya berguna untuk kemas kini segera pada server yang bot sudah sertai.
+For a public bot used in multiple servers, run:
 
-Jika `DISCORD_GUILD_ID` diisi, slash command muncul segera pada server tersebut. Tanpanya, command didaftarkan secara global dan mungkin mengambil masa untuk muncul.
+```powershell
+npm run register:global
+```
 
-## Penggunaan
+Global slash commands can take time to appear in every server. If `DISCORD_GUILD_ID` is set, `npm run register` registers commands to that test server immediately.
 
-Dalam Discord:
+## Recommended Discord workflow
 
-- `/menu` ialah cara paling mudah dan disyorkan. Tekan **Pilih Fail Audio** untuk membuka pemilih 1–5 fail, **Paste Link Audio** untuk menampal link fail public, atau **YouTube Auto Upload** untuk membuka borang YouTube. Tandakan pengesahan hak audio dan hantar.
-- Admin server baru boleh tekan **Akaun Roblox** dalam `/menu`, paste `ROBLOX_API_KEY`, pilih `Group` atau `User`, kemudian isi satu ID sahaja. Pilih `Group` + Group ID untuk community/group, atau `User` + User ID untuk user creator.
-- Command manual `/roblox-server set` hanya menyimpan creator type/ID. Untuk setup lengkap yang ada API key, guna **Akaun Roblox** dalam `/menu`.
-- `/roblox-server status` melihat creator ID server dan sama ada API key sudah diset. `/roblox-server clear` memadam setup dan menyekat upload user biasa sehingga diset semula.
-- Setiap flow convert/upload boleh pilih speed `1x`, `1.5x` atau `2x`. Pitch tidak dinaikkan; bot menggunakan perubahan tempo audio.
-- **Paste Link Audio** menyokong link public daripada Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Bot terus download, periksa, convert, normalize, upload dan memulangkan Asset ID tanpa langkah tambahan.
-- Untuk Dropbox, gunakan link share kepada satu fail. Untuk Google Drive, tetapkan akses fail kepada sesiapa yang mempunyai link. Link mestilah fail audio sebenar, bukan halaman login atau folder.
-- Jangan tampal URL halaman YouTube ke **Paste Link Audio**; gunakan pilihan **YouTube Auto Upload**. API rasmi YouTube tidak menyediakan muat turun audio.
-- `/upload` ialah cara lama untuk satu fail. `/yt` menerima link dan pengesahan hak dalam satu command, kemudian terus auto convert, edit dan upload tanpa butang kedua.
-- Jika YouTube menyekat alamat server cloud, bot tidak meminta login/cookies. Ia terus menawarkan butang upload MP3/WAV supaya pengguna boleh menyelesaikan kerja tanpa memulakan semula `/menu`.
-- `/roblox-audio` menukar fail dan menghantar OGG untuk anda upload sendiri.
-- `/roblox-upload` menerima 1 hingga 5 fail dan pengesahan hak audio. Bot menggunakan OGG high quality 192 kbps dan loudness normalization −14 LUFS / −1.5 dB true peak seperti aplikasi GUI, upload satu demi satu melalui Open Cloud, kemudian memberi Asset ID serta fail `asset_ids.json` dan `sounds.lua`.
-- `/roblox-help` menunjukkan panduan ringkas secara private dalam Discord.
-- Untuk satu fail, `name` boleh digunakan sebagai nama aset. Untuk beberapa fail, bot menggunakan nama setiap fail secara automatik. `description` digunakan untuk semua fail dalam batch.
+For a new server:
 
-Biarkan `normalize` off untuk mengekalkan mix asal. Semua borang dan hasil `/menu` hanya dapat dilihat oleh pengguna yang membukanya. Setiap upload terus memerlukan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.
+1. Invite the bot.
+2. A server admin opens `/menu`.
+3. If the server is not configured, the bot opens a setup form.
+4. Enter:
+   - `ROBLOX_API_KEY`
+   - `CREATOR_TYPE` as `Group` or `User`
+   - `CREATOR_ID`
+5. After setup, `/menu` shows normal upload options.
 
-### Konfigurasi Roblox Open Cloud
+For Roblox setup:
 
-Tetapkan secrets berikut pada host, bukan dalam GitHub atau mesej Discord:
+- Create the API key at Roblox Creator Dashboard > Credentials.
+- Required API key permissions: Assets `asset:read` and `asset:write`.
+- For group uploads, add the Group ID in the API key access permissions.
+- If `CREATOR_TYPE=Group`, `CREATOR_ID` must be the Roblox Group ID.
+- If `CREATOR_TYPE=User`, `CREATOR_ID` must be the Roblox User ID.
+- The server API key is stored encrypted and is never shown back in Discord.
 
-- `ROBLOX_API_KEY` — API key dengan permission `asset:write` untuk creator yang dipilih.
-- `CREATOR_TYPE` — `Group` atau `User`.
-- `CREATOR_ID` — ID group/user Roblox. Jika `CREATOR_TYPE=Group`, isi Group ID. Jika `CREATOR_TYPE=User`, isi User ID.
-- `ROBLOX_CREATOR_TYPE` dan `ROBLOX_CREATOR_ID` masih disokong sebagai alias lama, tetapi gunakan `CREATOR_TYPE` dan `CREATOR_ID` untuk setup baru.
-- `ROBLOX_UPLOAD_GUILD_ID` — ID server Discord yang dibenarkan.
-- `ROBLOX_UPLOAD_GUILD_IDS` — beberapa ID server tambahan, dipisahkan dengan koma.
-- `ROBLOX_UPLOAD_ROLE_ID` — ID role Discord yang boleh menggunakan `/roblox-upload`. Gunakan ID server/guild yang sama untuk membenarkan role `@everyone`.
-- `ROBLOX_UPLOAD_ROLE_IDS` — beberapa ID role tambahan; gunakan `*` untuk semua role dalam server yang sudah dibenarkan.
-- `ROBLOX_DEFAULT_USER_IDS` — Discord user ID pemilik/operator yang masih boleh upload ke creator default. Bot juga cuba auto-detect owner Discord application.
+## Discord commands
 
-Untuk group, gunakan akaun automasi khusus yang mempunyai permission group minimum yang diperlukan. Hadkan API key kepada permission dan IP sekecil yang praktikal, putar key jika terdedah, dan jangan gunakan tetapan IP terbuka melainkan host anda memerlukannya.
+- `/menu` - easiest option. Opens the upload menu.
+- `/roblox-help` - shows a private English help guide.
+- `/roblox-server status` - shows this Discord server's Roblox creator setup.
+- `/roblox-server set` - manually sets creator type and creator ID only.
+- `/roblox-server clear` - clears this server's Roblox setup.
+- `/upload` - quick single-file upload flow.
+- `/yt` - YouTube link flow.
+- `/roblox-audio` - converts a file and sends back an OGG for manual upload.
+- `/roblox-upload` - uploads 1-5 files directly to Roblox.
 
-### Konfigurasi Roblox OAuth per pengguna
+The easiest path for normal users is `/menu` > **Upload File**, **Paste Link**, or **YouTube**.
 
-Untuk bot public, gunakan OAuth rasmi Roblox supaya user tidak perlu memberi API key kepada bot:
+## Upload options
 
-- Cipta Roblox OAuth app dengan redirect URL `https://DOMAIN-BOT/oauth/roblox/callback`.
-- Scope yang diperlukan: `openid`, `profile`, `asset:read`, `asset:write`.
-- Set Railway variables `ROBLOX_OAUTH_CLIENT_ID`, `ROBLOX_OAUTH_CLIENT_SECRET` dan jika perlu `ROBLOX_OAUTH_REDIRECT_URI`.
-- Set `DATA_DIR=/app/data` dan pasang Railway volume ke `/app/data`, supaya API key per server dan setup creator server kekal selepas deploy/restart.
-- Set `SERVER_CONFIG_SECRET` jika anda mahu secret enkripsi khas untuk API key per server. Jika kosong, bot menggunakan `DISCORD_TOKEN` sebagai secret enkripsi.
+All upload flows require the user to confirm that they own the audio or have a license to use it.
 
-API key per server disimpan terenkripsi dalam `DATA_DIR` dan tidak dipaparkan semula dalam Discord.
+Supported file inputs:
 
-## Batas
+- MP3
+- OGG
+- WAV
+- FLAC
+- M4A
+- AAC
 
-- Input: MP3, OGG, WAV, FLAC, M4A, atau AAC; maksimum 25 MB.
-- Link audio: HTTPS sahaja, satu fail public daripada Dropbox, Google Drive, Discord CDN, Cloudflare R2 atau Amazon S3.
-- Output `/roblox-audio`: OGG Vorbis, stereo, 48 kHz, nominal 160 kbps.
-- Output `/roblox-upload`: OGG Vorbis, stereo, 48 kHz, nominal 192 kbps.
-- Durasi: maksimum 7 minit.
-- Durasi selepas speed dipilih: maksimum 7 minit. Contoh, audio 10 minit pada speed `2x` menjadi lebih kurang 5 minit.
-- Batch upload: maksimum 5 lagu bagi command; maksimum 10 fail aktif/menunggu dan maksimum 5 fail menunggu bagi setiap user.
-- Satu conversion/upload berjalan pada satu masa untuk mengelakkan server kecil kehabisan CPU/RAM.
+Supported public direct audio links:
 
-Had format, saiz dan durasi dirujuk daripada dokumentasi rasmi [Roblox Audio Assets](https://create.roblox.com/docs/audio/assets) dan [Open Cloud Assets](https://create.roblox.com/docs/cloud/guides/usage-assets).
+- Dropbox
+- Google Drive
+- Discord CDN
+- Cloudflare R2
+- Amazon S3
 
-Fungsi YouTube menggunakan binary rasmi [yt-dlp](https://github.com/yt-dlp/yt-dlp) yang dipinkan dan disahkan checksum dalam Docker. Untuk penggunaan lokal, pasang yt-dlp dan tetapkan `YT_DLP_PATH` jika executable tidak berada dalam `PATH`.
+Do not paste a YouTube page URL into **Paste Link**. Use the **YouTube** option for YouTube.
 
-Gunakan `/yt` hanya untuk video/audio yang anda miliki, berlesen, public dan dibenarkan untuk dimuat turun. Bot tidak menggunakan cookies pengguna, tidak membuka kandungan private dan tidak memintas DRM.
+Audio speed choices:
 
-## Deploy 24/7 di Railway
+- `1x` - normal
+- `1.5x` - faster
+- `2x` - double speed
 
-Repository ini mengandungi `Dockerfile`, jadi Railway akan mengesan dan membina container secara automatik.
+Pitch is not raised; the bot uses tempo adjustment.
 
-1. Push folder ini sebagai repository GitHub tersendiri.
-2. Di Railway, cipta project daripada repository GitHub tersebut.
-3. Tambah variables `DISCORD_TOKEN` dan `DISCORD_CLIENT_ID`. Jangan upload fail `.env`.
-4. Gunakan region Asia yang paling dekat dengan pengguna anda jika tersedia.
-5. Dalam Service Settings, tetapkan Restart Policy kepada **Always**.
-6. Jika guna OAuth per pengguna, tambah Railway volume pada `/app/data`.
-7. Deploy dan pastikan log menunjukkan `Bot aktif sebagai ...`.
-8. Jalankan `npm run register:global` secara lokal setiap kali bentuk slash command berubah.
+## Environment variables
 
-Railway Hobby ialah pilihan praktikal untuk bot kecil yang perlu sentiasa hidup. Kos sebenar bergantung pada RAM, CPU ketika FFmpeg memproses audio, storage, dan network egress. Tetapkan usage alert/limit dan semak anggaran selepas seminggu operasi.
+Required for Discord:
 
-Fail audio kerja disimpan sementara dalam direktori sistem dan dipadam selepas setiap job. Volume kekal hanya diperlukan jika anda mengaktifkan Roblox OAuth per pengguna.
+- `DISCORD_TOKEN`
+- `DISCORD_CLIENT_ID`
+- `DISCORD_GUILD_ID` for fast test-server command registration
 
-Link audio diperiksa semula pada setiap redirect, dihadkan kepada empat redirect dan 25 MB, serta ditolak jika menuju ke alamat IP/rangkaian dalaman atau memulangkan HTML/JSON/XML. Query link tidak ditulis ke log bot. Pemeriksaan FFprobe tetap dijalankan sebelum FFmpeg dan upload Roblox.
+Optional default Roblox creator config:
+
+- `ROBLOX_API_KEY`
+- `CREATOR_TYPE` - `Group` or `User`
+- `CREATOR_ID` - Roblox Group ID or User ID
+- `ROBLOX_CREATOR_TYPE` and `ROBLOX_CREATOR_ID` are legacy aliases
+
+Access controls for the default creator:
+
+- `ROBLOX_UPLOAD_GUILD_ID`
+- `ROBLOX_UPLOAD_GUILD_IDS`
+- `ROBLOX_UPLOAD_ROLE_ID`
+- `ROBLOX_UPLOAD_ROLE_IDS`
+- `ROBLOX_DEFAULT_USER_IDS`
+
+Per-server setup storage:
+
+- `DATA_DIR=/app/data`
+- `SERVER_CONFIG_SECRET` for a dedicated encryption secret
+
+If `SERVER_CONFIG_SECRET` is empty, the bot uses `DISCORD_TOKEN` as the encryption secret for per-server API keys.
+
+Optional Roblox OAuth:
+
+- `ROBLOX_OAUTH_CLIENT_ID`
+- `ROBLOX_OAUTH_CLIENT_SECRET`
+- `ROBLOX_OAUTH_REDIRECT_URI`
+
+OAuth redirect URL format:
+
+```text
+https://YOUR-BOT-DOMAIN/oauth/roblox/callback
+```
+
+Required OAuth scopes:
+
+- `openid`
+- `profile`
+- `asset:read`
+- `asset:write`
+
+## Limits
+
+- Input file size: 25 MB maximum.
+- Roblox output size: under 20 MB.
+- Roblox duration: under 7 minutes after speed is applied.
+- Batch upload: maximum 5 files per command.
+- Queue: maximum 10 active/pending files globally and 5 pending files per user.
+- One conversion/upload runs at a time to avoid exhausting small Railway containers.
+
+Audio limits are based on Roblox Audio Assets and Open Cloud Assets documentation.
+
+## YouTube behavior
+
+The YouTube feature uses `yt-dlp`. Docker installs a pinned verified binary.
+
+Use YouTube only for public videos/audio that you own, are licensed to use, and are allowed to download. The bot does not use user cookies, does not open private content, and does not bypass DRM.
+
+If YouTube blocks the Railway/cloud server, the bot will not ask for login. It will show a button where the user can upload the original MP3/WAV manually, then the bot continues editing and uploading to Roblox.
+
+## Deploy 24/7 on Railway
+
+This repository includes a `Dockerfile`, so Railway can build it automatically.
+
+1. Push this folder to GitHub.
+2. Create a Railway project from the GitHub repository.
+3. Add Railway variables `DISCORD_TOKEN` and `DISCORD_CLIENT_ID`.
+4. Add `DATA_DIR=/app/data`.
+5. Add a Railway volume mounted at `/app/data` so per-server API key setup survives restarts.
+6. In Service Settings, set Restart Policy to **Always**.
+7. Deploy.
+8. Confirm logs show `Bot is online as ...`.
+9. Run `npm run register:global` locally whenever slash command descriptions or options change.
+
+Railway Hobby is a practical option for a small always-on bot. Actual cost depends on RAM, CPU used by FFmpeg, storage, and network egress. Set usage alerts/limits and review cost after the first week.
+
+Temporary working audio files are stored in the system temp directory and deleted after each job. Persistent storage is only needed for encrypted server configuration and optional OAuth profiles.
+
+Direct audio links are checked at every redirect, limited to four redirects and 25 MB, blocked if they resolve to internal/private network addresses, and rejected if they return HTML/JSON/XML instead of audio. Link query strings are not written to bot logs.

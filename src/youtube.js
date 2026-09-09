@@ -13,10 +13,10 @@ export function normalizeYouTubeUrl(value) {
   try {
     url = new URL(String(value || "").trim());
   } catch {
-    throw new Error("Link YouTube tidak sah.");
+    throw new Error("Invalid YouTube link.");
   }
   if (url.protocol !== "https:" || url.username || url.password || url.port) {
-    throw new Error("Gunakan link YouTube HTTPS yang biasa.");
+    throw new Error("Use a normal HTTPS YouTube link.");
   }
 
   const host = url.hostname.toLowerCase();
@@ -34,7 +34,7 @@ export function normalizeYouTubeUrl(value) {
   }
 
   if (!VIDEO_ID.test(videoId || "")) {
-    throw new Error("Link mesti menuju kepada satu video YouTube, bukan playlist atau channel.");
+    throw new Error("The link must point to one YouTube video, not a playlist or channel.");
   }
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
@@ -54,24 +54,24 @@ function baseArgs() {
 export function friendlyYouTubeError(error) {
   const detail = String(error?.stderr || error?.stdout || error?.message || "");
   if (error?.code === "ENOENT") {
-    return "Downloader YouTube belum dipasang pada server.";
+    return "The YouTube downloader is not installed on the server.";
   }
   if (/sign in to confirm|cookies/i.test(detail)) {
-    return "YouTube meminta login atau menyekat alamat server cloud.";
+    return "YouTube is asking for login or blocking the cloud server address.";
   }
   if (/private video|members-only|video unavailable/i.test(detail)) {
-    return "Video YouTube tidak tersedia secara public.";
+    return "The YouTube video is not publicly available.";
   }
   if (/copyright|drm|encrypted/i.test(detail)) {
-    return "Audio ini dilindungi dan tidak boleh dimuat turun oleh bot.";
+    return "This audio is protected and cannot be downloaded by the bot.";
   }
   if (/max-filesize|larger than|max filesize/i.test(detail)) {
-    return "Audio YouTube terlalu besar untuk diproses oleh bot.";
+    return "The YouTube audio is too large for the bot to process.";
   }
   if (/timed out|timeout/i.test(detail)) {
-    return "Sambungan YouTube tamat masa. Cuba lagi sebentar.";
+    return "The YouTube connection timed out. Try again shortly.";
   }
-  return "Gagal mengambil audio daripada YouTube. Pastikan video public dan link masih aktif.";
+  return "Failed to fetch audio from YouTube. Make sure the video is public and the link is still active.";
 }
 
 async function runYtDlp(ytDlpPath, args, options = {}) {
@@ -89,7 +89,7 @@ async function runYtDlp(ytDlpPath, args, options = {}) {
 export async function checkYouTubeTool(ytDlpPath) {
   const { stdout } = await runYtDlp(ytDlpPath, ["--version"], { timeout: 15_000, maxBuffer: 1024 * 1024 });
   const version = stdout.trim();
-  if (!version) throw new Error("yt-dlp tidak memulangkan versi.");
+  if (!version) throw new Error("yt-dlp did not return a version.");
   return version;
 }
 
@@ -107,16 +107,16 @@ export async function downloadYouTubeMp3({ ytDlpPath, ffmpegPath, url, outputPat
   try {
     metadata = JSON.parse(stdout);
   } catch {
-    throw new Error("YouTube memulangkan metadata yang tidak dapat dibaca.");
+    throw new Error("YouTube returned unreadable metadata.");
   }
   const duration = Number(metadata.duration);
   const isLive = metadata.is_live || ["is_live", "is_upcoming"].includes(metadata.live_status);
   if (metadata._type === "playlist" || Array.isArray(metadata.entries)) {
-    throw new Error("Playlist tidak disokong. Gunakan link satu video sahaja.");
+    throw new Error("Playlists are not supported. Use a single video link only.");
   }
-  if (isLive) throw new Error("Live stream tidak disokong.");
-  if (!Number.isFinite(duration) || duration <= 0) throw new Error("Durasi video tidak dapat dibaca.");
-  if (duration > MAX_DURATION_SECONDS) throw new Error("Audio YouTube melebihi had Roblox 7 minit.");
+  if (isLive) throw new Error("Live streams are not supported.");
+  if (!Number.isFinite(duration) || duration <= 0) throw new Error("The video duration could not be read.");
+  if (duration > MAX_DURATION_SECONDS) throw new Error("YouTube audio exceeds Roblox's 7-minute limit.");
 
   const outputTemplate = join(dirname(outputPath), "youtube-source.%(ext)s");
   await runYtDlp(ytDlpPath, [
@@ -140,10 +140,10 @@ export async function downloadYouTubeMp3({ ytDlpPath, ffmpegPath, url, outputPat
   try {
     fileInfo = await stat(sourcePath);
   } catch {
-    throw new Error("YouTube tidak menghasilkan fail MP3 yang boleh digunakan.");
+    throw new Error("YouTube did not produce a usable MP3 file.");
   }
   if (fileInfo.size <= 0 || fileInfo.size > MAX_MP3_BYTES) {
-    throw new Error("MP3 YouTube kosong atau melebihi had bot 25 MB.");
+    throw new Error("The YouTube MP3 is empty or exceeds the bot's 25 MB limit.");
   }
 
   return {

@@ -17,7 +17,7 @@ export function mainMenuComponents() {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("music-menu:file")
-        .setLabel("Upload Fail")
+        .setLabel("Upload File")
         .setEmoji("📁")
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
@@ -39,7 +39,7 @@ export function mainMenuComponents() {
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("music-menu:help")
-        .setLabel("Cara Guna")
+        .setLabel("How to Use")
         .setEmoji("❓")
         .setStyle(ButtonStyle.Secondary)
     )
@@ -50,7 +50,7 @@ export function youtubeFallbackComponents() {
   return [new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("music-menu:file")
-      .setLabel("Upload MP3/WAV Sekarang")
+      .setLabel("Upload MP3/WAV Now")
       .setEmoji("📁")
       .setStyle(ButtonStyle.Primary)
   )];
@@ -58,8 +58,8 @@ export function youtubeFallbackComponents() {
 
 function rightsLabel() {
   return new LabelBuilder()
-    .setLabel("Pengesahan hak audio")
-    .setDescription("Wajib ditanda: saya memiliki atau mempunyai lesen audio ini")
+    .setLabel("Audio rights confirmation")
+    .setDescription("Required: I own this audio or have a license to use it")
     .setCheckboxComponent(
       new CheckboxBuilder().setCustomId("rights_confirm").setDefault(false)
     );
@@ -67,8 +67,8 @@ function rightsLabel() {
 
 function speedLabel() {
   return new LabelBuilder()
-    .setLabel("Kelajuan audio")
-    .setDescription("1x normal; 1.5x atau 2x mempercepat tanpa menaikkan pitch")
+    .setLabel("Audio speed")
+    .setDescription("1x is normal; 1.5x or 2x speeds up without raising pitch")
     .setStringSelectMenuComponent(
       new StringSelectMenuBuilder()
         .setCustomId("audio_speed")
@@ -76,11 +76,11 @@ function speedLabel() {
         .setMaxValues(1)
         .addOptions(
           new StringSelectMenuOptionBuilder()
-            .setLabel("1x — Normal")
+            .setLabel("1x - Normal")
             .setValue("1")
             .setDefault(true),
-          new StringSelectMenuOptionBuilder().setLabel("1.5x — Lebih laju").setValue("1.5"),
-          new StringSelectMenuOptionBuilder().setLabel("2x — Dua kali laju").setValue("2")
+          new StringSelectMenuOptionBuilder().setLabel("1.5x - Faster").setValue("1.5"),
+          new StringSelectMenuOptionBuilder().setLabel("2x - Double speed").setValue("2")
         )
     );
 }
@@ -88,10 +88,10 @@ function speedLabel() {
 export function fileUploadModal() {
   return new ModalBuilder()
     .setCustomId("music-menu:file-modal")
-    .setTitle("Upload Audio ke Roblox")
+    .setTitle("Upload Audio to Roblox")
     .addLabelComponents(
       new LabelBuilder()
-        .setLabel("Pilih 1 hingga 5 fail audio")
+        .setLabel("Choose 1 to 5 audio files")
         .setDescription("MP3, OGG, WAV, FLAC, M4A atau AAC")
         .setFileUploadComponent(
           new FileUploadBuilder()
@@ -111,8 +111,8 @@ export function youtubeUploadModal() {
     .setTitle("YouTube Auto Convert & Upload")
     .addLabelComponents(
       new LabelBuilder()
-        .setLabel("Link satu video YouTube public")
-        .setDescription("Playlist, live dan video private tidak disokong")
+        .setLabel("Public YouTube video link")
+        .setDescription("Playlists, live videos, and private videos are not supported")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("youtube_link")
@@ -132,13 +132,13 @@ export function directAudioUploadModal() {
     .setTitle("Paste Link Audio")
     .addLabelComponents(
       new LabelBuilder()
-        .setLabel("Link terus ke fail audio public")
+        .setLabel("Direct public audio file link")
         .setDescription("Dropbox, Google Drive, Discord CDN, R2 atau S3")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("audio_link")
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder("https://.../lagu.mp3")
+            .setPlaceholder("https://.../song.mp3")
             .setMaxLength(1000)
             .setRequired(true)
         ),
@@ -154,18 +154,18 @@ export function robloxServerSetupModal() {
     .addLabelComponents(
       new LabelBuilder()
         .setLabel("Roblox Open Cloud API Key")
-        .setDescription("Paste API key developer server ini. Bot simpan encrypted.")
+        .setDescription("Paste this server developer API key. The bot stores it encrypted.")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("roblox_api_key")
             .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder("Masukkan ROBLOX_API_KEY")
+            .setPlaceholder("Enter ROBLOX_API_KEY")
             .setMaxLength(2000)
             .setRequired(true)
         ),
       new LabelBuilder()
-        .setLabel("Jenis creator Roblox")
-        .setDescription("Pilih satu sahaja")
+        .setLabel("Roblox creator type")
+        .setDescription("Choose one")
         .setStringSelectMenuComponent(
           new StringSelectMenuBuilder()
             .setCustomId("creator_type")
@@ -174,23 +174,23 @@ export function robloxServerSetupModal() {
             .addOptions(
               new StringSelectMenuOptionBuilder()
                 .setLabel("Group")
-                .setDescription("Upload masuk ke Roblox group/community")
+                .setDescription("Upload to a Roblox group/community")
                 .setValue("Group")
                 .setDefault(true),
               new StringSelectMenuOptionBuilder()
                 .setLabel("User")
-                .setDescription("Upload masuk ke Roblox user creator")
+                .setDescription("Upload to a Roblox user creator")
                 .setValue("User")
             )
         ),
       new LabelBuilder()
         .setLabel("Creator ID Roblox")
-        .setDescription("Isi SATU ID sahaja: Group ID jika pilih Group, User ID jika pilih User")
+        .setDescription("Enter ONE ID only: Group ID for Group, User ID for User")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("creator_id")
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder("Contoh: 123456789")
+            .setPlaceholder("Example: 123456789")
             .setMaxLength(30)
             .setRequired(true)
         )

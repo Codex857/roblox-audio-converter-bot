@@ -75,18 +75,18 @@ function visibleExtension(url) {
 function assertSafeUrl(url) {
   const host = url.hostname.toLowerCase();
   if (url.protocol !== "https:" || url.username || url.password || url.port) {
-    throw new Error("Gunakan link fail HTTPS biasa tanpa login atau port khas.");
+    throw new Error("Use a normal HTTPS file link without login details or custom ports.");
   }
   if (!host || host === "localhost" || host.endsWith(".local") || isIP(host)) {
-    throw new Error("Alamat dalaman atau alamat IP tidak dibenarkan.");
+    throw new Error("Internal hosts and raw IP addresses are not allowed.");
   }
   if (!isAllowedHost(host)) {
-    throw new Error("Host link tidak disokong. Gunakan Dropbox, Google Drive, Discord CDN, Cloudflare R2 atau Amazon S3.");
+    throw new Error("Unsupported link host. Use Dropbox, Google Drive, Discord CDN, Cloudflare R2, or Amazon S3.");
   }
 
   const extension = visibleExtension(url);
   if (extension && !AUDIO_EXTENSIONS.has(extension)) {
-    throw new Error("Link mesti menuju kepada fail MP3, OGG, WAV, FLAC, M4A atau AAC.");
+    throw new Error("The link must point to an MP3, OGG, WAV, FLAC, M4A, or AAC file.");
   }
 }
 
@@ -102,7 +102,7 @@ export function normalizeDirectAudioUrl(value) {
   try {
     url = new URL(String(value || "").trim());
   } catch {
-    throw new Error("Link fail audio tidak sah.");
+    throw new Error("Invalid audio file link.");
   }
 
   url.hash = "";
@@ -111,13 +111,13 @@ export function normalizeDirectAudioUrl(value) {
   const host = url.hostname.toLowerCase();
   if (matchesDomain(host, "dropbox.com")) {
     if (!/^\/(?:s|scl\/fi)\//.test(url.pathname)) {
-      throw new Error("Gunakan link share Dropbox yang menuju terus kepada satu fail audio.");
+      throw new Error("Use a Dropbox share link that points directly to one audio file.");
     }
     url.searchParams.delete("dl");
     url.searchParams.set("raw", "1");
   } else if (host === "drive.google.com") {
     const id = googleDriveFileId(url);
-    if (!id) throw new Error("Link Google Drive mesti menuju kepada satu fail public.");
+    if (!id) throw new Error("Google Drive links must point to one public file.");
     url = new URL("https://drive.usercontent.google.com/download");
     url.searchParams.set("id", id);
     url.searchParams.set("export", "download");
@@ -163,11 +163,11 @@ async function assertPublicDns(hostname, lookupImpl) {
   try {
     records = await lookupImpl(hostname, { all: true, verbatim: true });
   } catch {
-    throw new Error("Host fail audio tidak dapat dihubungi.");
+    throw new Error("The audio file host could not be reached.");
   }
   const entries = Array.isArray(records) ? records : [records];
   if (!entries.length || entries.some((entry) => isPrivateAddress(entry?.address))) {
-    throw new Error("Link yang menuju ke alamat rangkaian dalaman tidak dibenarkan.");
+    throw new Error("Links that resolve to an internal network address are not allowed.");
   }
 }
 
@@ -213,7 +213,7 @@ function responseFileName(response, url) {
     }
   }
   if (!candidate || !extension || !AUDIO_EXTENSIONS.has(extension)) {
-    throw new Error("Link tidak memulangkan satu fail audio yang disokong.");
+    throw new Error("The link did not return a supported audio file.");
   }
   return candidate;
 }
@@ -226,7 +226,7 @@ function validateResponseType(response) {
     || contentType.includes("json")
     || contentType.includes("xml")
   )) {
-    throw new Error("Link memulangkan halaman web, bukan fail audio terus.");
+    throw new Error("The link returned a web page, not a direct audio file.");
   }
 }
 
@@ -249,20 +249,20 @@ export async function downloadDirectAudio({
     });
 
     if (!REDIRECT_STATUSES.has(response.status)) break;
-    if (redirects === MAX_REDIRECTS) throw new Error("Link mempunyai terlalu banyak redirect.");
+    if (redirects === MAX_REDIRECTS) throw new Error("The link has too many redirects.");
     const location = response.headers.get("location");
-    if (!location) throw new Error("Redirect fail audio tidak sah.");
+    if (!location) throw new Error("Invalid audio file redirect.");
     url = new URL(location, url);
     assertSafeUrl(url);
   }
 
   if (!response?.ok || !response.body) {
-    throw new Error(`Gagal memuat turun fail audio (HTTP ${response?.status || "tidak diketahui"}).`);
+    throw new Error(`Failed to download audio file (HTTP ${response?.status || "unknown"}).`);
   }
   validateResponseType(response);
 
   const declaredSize = Number(response.headers.get("content-length") || 0);
-  if (declaredSize > DOWNLOAD_MAX_BYTES) throw new Error("Fail input melebihi had 25 MB.");
+  if (declaredSize > DOWNLOAD_MAX_BYTES) throw new Error("Input file exceeds the 25 MB limit.");
 
   const name = responseFileName(response, url);
   const extension = visibleExtension(new URL(`https://audio.invalid/${encodeURIComponent(name)}`));
@@ -271,12 +271,12 @@ export async function downloadDirectAudio({
   const sizeGuard = new Transform({
     transform(chunk, _encoding, callback) {
       received += chunk.length;
-      if (received > DOWNLOAD_MAX_BYTES) callback(new Error("Fail input melebihi had 25 MB."));
+      if (received > DOWNLOAD_MAX_BYTES) callback(new Error("Input file exceeds the 25 MB limit."));
       else callback(null, chunk);
     }
   });
 
   await pipeline(Readable.fromWeb(response.body), sizeGuard, createWriteStream(path));
-  if (received <= 0) throw new Error("Fail audio yang dimuat turun kosong.");
+  if (received <= 0) throw new Error("The downloaded audio file is empty.");
   return { path, name, size: received, host: url.hostname.toLowerCase() };
 }

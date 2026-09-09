@@ -40,7 +40,7 @@ test("blocked YouTube flow offers an immediate file upload fallback", () => {
   const rows = youtubeFallbackComponents().map((row) => row.toJSON());
   assert.equal(rows[0].components.length, 1);
   assert.equal(rows[0].components[0].custom_id, "music-menu:file");
-  assert.equal(rows[0].components[0].label, "Upload MP3/WAV Sekarang");
+  assert.equal(rows[0].components[0].label, "Upload MP3/WAV Now");
 });
 
 test("file modal accepts up to five files and requires speed plus rights confirmation", () => {

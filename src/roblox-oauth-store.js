@@ -22,16 +22,16 @@ function encryptionKey(secret) {
 
 function validateDiscordId(discordUserId) {
   const value = String(discordUserId || "");
-  if (!DISCORD_ID.test(value)) throw new Error("Discord user ID tidak sah.");
+  if (!DISCORD_ID.test(value)) throw new Error("Invalid Discord user ID.");
   return value;
 }
 
 function validateProfile(profile) {
   if (!/^\d+$/.test(String(profile?.robloxUserId || ""))) {
-    throw new Error("Roblox user ID tidak sah.");
+    throw new Error("Invalid Roblox user ID.");
   }
   if (!String(profile?.accessToken || "") || !String(profile?.refreshToken || "")) {
-    throw new Error("Token OAuth Roblox tidak lengkap.");
+    throw new Error("Roblox OAuth token is incomplete.");
   }
 }
 
@@ -52,7 +52,7 @@ function encryptProfile(key, discordUserId, profile) {
 }
 
 function decryptProfile(key, discordUserId, record) {
-  if (record?.version !== STORE_VERSION) throw new Error("Versi profil tidak disokong.");
+  if (record?.version !== STORE_VERSION) throw new Error("Unsupported profile version.");
   const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(record.iv, "base64url"));
   decipher.setAAD(Buffer.from(discordUserId, "utf8"));
   decipher.setAuthTag(Buffer.from(record.tag, "base64url"));
@@ -67,8 +67,8 @@ function decryptProfile(key, discordUserId, record) {
 
 export class RobloxOAuthProfileStore {
   constructor({ directory, secret }) {
-    if (!directory) throw new Error("Direktori profil OAuth diperlukan.");
-    if (!secret) throw new Error("Secret enkripsi profil OAuth diperlukan.");
+    if (!directory) throw new Error("OAuth profile directory is required.");
+    if (!secret) throw new Error("OAuth profile encryption secret is required.");
     this.directory = directory;
     this.key = encryptionKey(secret);
     this.profiles = new Map();

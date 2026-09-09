@@ -63,7 +63,7 @@ test("operation paths and asset IDs accept supported Roblox response shapes", ()
 });
 
 test("Roblox API failures use useful messages", () => {
-  assert.match(robloxApiError(413), /terlalu besar/);
+  assert.match(robloxApiError(413), /too large/);
   assert.match(robloxApiError(429, { error: { message: "quota reached" } }), /quota reached/);
 });
 

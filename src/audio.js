@@ -17,13 +17,13 @@ const AUDIO_SPEEDS = new Set([1, 1.5, 2]);
 
 export function bitrateForQuality(quality = "standard") {
   const bitrate = QUALITY_BITRATES[quality];
-  if (!bitrate) throw new Error("Pilihan kualiti tidak sah.");
+  if (!bitrate) throw new Error("Invalid quality option.");
   return bitrate;
 }
 
 export function normalizeAudioSpeed(value = 1) {
   const speed = Number(value);
-  if (!AUDIO_SPEEDS.has(speed)) throw new Error("Kelajuan audio mesti 1x, 1.5x atau 2x.");
+  if (!AUDIO_SPEEDS.has(speed)) throw new Error("Audio speed must be 1x, 1.5x, or 2x.");
   return speed;
 }
 
@@ -43,18 +43,18 @@ export function validateAttachment(attachment) {
   const url = new URL(attachment.url);
 
   if (!allowedExtensions.has(extension)) {
-    throw new Error("Format input tidak disokong. Gunakan MP3, OGG, WAV, FLAC, M4A, atau AAC.");
+    throw new Error("Unsupported input format. Use MP3, OGG, WAV, FLAC, M4A, or AAC.");
   }
 
   const isDiscordHost = ["discordapp.com", "discordapp.net"].some(
     (domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`)
   );
   if (!isDiscordHost) {
-    throw new Error("Lampiran mesti datang terus daripada Discord.");
+    throw new Error("Attachments must come directly from Discord.");
   }
 
   if (attachment.size > DOWNLOAD_MAX_BYTES) {
-    throw new Error("Fail input terlalu besar. Had bot ialah 25 MB.");
+    throw new Error("Input file is too large. The bot limit is 25 MB.");
   }
 }
 
@@ -63,12 +63,12 @@ export async function downloadAttachment(attachment, destination) {
   const response = await fetch(attachment.url, { signal: AbortSignal.timeout(60_000) });
 
   if (!response.ok || !response.body) {
-    throw new Error(`Gagal memuat turun fail (HTTP ${response.status}).`);
+    throw new Error(`Failed to download file (HTTP ${response.status}).`);
   }
 
   const declaredSize = Number(response.headers.get("content-length") || 0);
   if (declaredSize > DOWNLOAD_MAX_BYTES) {
-    throw new Error("Fail input melebihi had 25 MB.");
+    throw new Error("Input file exceeds the 25 MB limit.");
   }
 
   const { createWriteStream } = await import("node:fs");
@@ -79,7 +79,7 @@ export async function downloadAttachment(attachment, destination) {
   const sizeGuard = new Transform({
     transform(chunk, _encoding, callback) {
       received += chunk.length;
-      if (received > DOWNLOAD_MAX_BYTES) callback(new Error("Fail input melebihi had 25 MB."));
+      if (received > DOWNLOAD_MAX_BYTES) callback(new Error("Input file exceeds the 25 MB limit."));
       else callback(null, chunk);
     }
   });
@@ -96,11 +96,11 @@ export async function inspectAudio(ffprobePath, inputPath, options = {}) {
   const duration = Number(JSON.parse(stdout).format?.duration);
 
   if (!Number.isFinite(duration) || duration <= 0) {
-    throw new Error("Audio tidak sah atau durasinya tidak dapat dibaca.");
+    throw new Error("Invalid audio, or the duration could not be read.");
   }
   const speed = normalizeAudioSpeed(options.speed ?? 1);
   if (duration / speed > ROBLOX_MAX_SECONDS) {
-    throw new Error("Audio masih melebihi had Roblox 7 minit selepas kelajuan dipilih.");
+    throw new Error("Audio is still over Roblox's 7-minute limit after the selected speed.");
   }
 
   return { duration };
@@ -124,16 +124,16 @@ export async function inspectConvertedAudio(ffprobePath, outputPath) {
   const channels = Number(stream?.channels);
 
   if (!stream || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(size) || size <= 0) {
-    throw new Error("Fail OGG yang dihasilkan tidak sah.");
+    throw new Error("The generated OGG file is invalid.");
   }
   if (duration > ROBLOX_MAX_SECONDS + 0.25) {
-    throw new Error("Fail OGG yang dihasilkan melebihi had Roblox 7 minit.");
+    throw new Error("The generated OGG file exceeds Roblox's 7-minute limit.");
   }
   if (size >= ROBLOX_MAX_BYTES) {
-    throw new Error("Fail OGG yang dihasilkan melebihi had Roblox 20 MB.");
+    throw new Error("The generated OGG file exceeds Roblox's 20 MB limit.");
   }
   if (stream.codec_name !== "vorbis" || sampleRate !== 48_000 || channels !== 2) {
-    throw new Error("Fail output bukan OGG Vorbis stereo 48 kHz yang sah.");
+    throw new Error("The output file is not a valid 48 kHz stereo OGG Vorbis file.");
   }
 
   return { duration, size, sampleRate, channels, codec: stream.codec_name };

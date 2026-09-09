@@ -12,7 +12,7 @@ function send(res, status, body, contentType = "application/json; charset=utf-8"
 }
 
 function html(title, message) {
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.45;max-width:620px}</style></head><body><h1>${title}</h1><p>${message}</p><p>Anda boleh tutup tab ini dan kembali ke Discord.</p></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.45;max-width:620px}</style></head><body><h1>${title}</h1><p>${message}</p><p>You can close this tab and return to Discord.</p></body></html>`;
 }
 
 export function startServer({ port, getStatus, handleRobloxOAuthCallback }) {
@@ -28,11 +28,11 @@ export function startServer({ port, getStatus, handleRobloxOAuthCallback }) {
           return send(
             res,
             200,
-            html("Roblox connected", `Akaun Roblox ${profile.username} (${profile.robloxUserId}) sudah disambung.`),
+            html("Roblox connected", `Roblox account ${profile.username} (${profile.robloxUserId}) is connected.`),
             "text/html; charset=utf-8"
           );
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Sambungan Roblox gagal.";
+          const message = error instanceof Error ? error.message : "Roblox connection failed.";
           return send(res, 400, html("Roblox connect failed", message), "text/html; charset=utf-8");
         }
       }
@@ -42,6 +42,6 @@ export function startServer({ port, getStatus, handleRobloxOAuthCallback }) {
       return send(res, 400, JSON.stringify({ error: "Invalid request" }));
     }
   });
-  server.listen(port, "0.0.0.0", () => console.log(`HTTP health server aktif pada port ${port}`));
+  server.listen(port, "0.0.0.0", () => console.log(`HTTP health server active on port ${port}`));
   return server;
 }

@@ -3,24 +3,24 @@ import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 function speedOption(option) {
   return option
     .setName("speed")
-    .setDescription("Kelajuan audio; 1x ialah normal")
+    .setDescription("Audio speed; 1x is normal")
     .addChoices(
-      { name: "1x — Normal", value: "1" },
-      { name: "1.5x — Lebih laju", value: "1.5" },
-      { name: "2x — Dua kali laju", value: "2" }
+      { name: "1x - Normal", value: "1" },
+      { name: "1.5x - Faster", value: "1.5" },
+      { name: "2x - Double speed", value: "2" }
     );
 }
 
 export const robloxAudioCommand = new SlashCommandBuilder()
   .setName("roblox-audio")
-  .setDescription("Tukar audio milik anda kepada OGG yang sesuai untuk Roblox")
+  .setDescription("Convert owned or licensed audio to a Roblox-ready OGG file")
   .addAttachmentOption((option) =>
     option.setName("file").setDescription("Audio MP3, OGG, WAV, FLAC, M4A, atau AAC").setRequired(true)
   )
   .addStringOption((option) =>
     option
       .setName("quality")
-      .setDescription("Kualiti output; standard disyorkan")
+      .setDescription("Output quality; standard is recommended")
       .addChoices(
         { name: "Compact (128 kbps)", value: "compact" },
         { name: "Standard (160 kbps)", value: "standard" },
@@ -30,85 +30,85 @@ export const robloxAudioCommand = new SlashCommandBuilder()
   .addBooleanOption((option) =>
     option
       .setName("normalize")
-      .setDescription("Samakan loudness; biarkan off untuk mengekalkan mix asal")
+      .setDescription("Normalize loudness; leave off to preserve the original mix")
   )
   .addStringOption(speedOption);
 
 export const robloxUploadCommand = new SlashCommandBuilder()
   .setName("roblox-upload")
-  .setDescription("Tukar dan upload sehingga 5 audio berlesen terus ke Roblox")
+  .setDescription("Convert and upload up to 5 licensed audio files to Roblox")
   .addAttachmentOption((option) =>
-    option.setName("file").setDescription("Audio pertama (MP3, OGG, WAV, FLAC, M4A, atau AAC)").setRequired(true)
+    option.setName("file").setDescription("First audio file (MP3, OGG, WAV, FLAC, M4A, or AAC)").setRequired(true)
   )
   .addBooleanOption((option) =>
-    option.setName("rights_confirm").setDescription("Saya memiliki/hak lesen untuk semua audio ini").setRequired(true)
+    option.setName("rights_confirm").setDescription("I own or have a license for all uploaded audio").setRequired(true)
   )
   .addAttachmentOption((option) =>
-    option.setName("file_2").setDescription("Audio kedua (pilihan)")
+    option.setName("file_2").setDescription("Second audio file (optional)")
   )
   .addAttachmentOption((option) =>
-    option.setName("file_3").setDescription("Audio ketiga (pilihan)")
+    option.setName("file_3").setDescription("Third audio file (optional)")
   )
   .addAttachmentOption((option) =>
-    option.setName("file_4").setDescription("Audio keempat (pilihan)")
+    option.setName("file_4").setDescription("Fourth audio file (optional)")
   )
   .addAttachmentOption((option) =>
-    option.setName("file_5").setDescription("Audio kelima (pilihan)")
+    option.setName("file_5").setDescription("Fifth audio file (optional)")
   )
   .addStringOption((option) =>
-    option.setName("name").setDescription("Nama aset jika hanya satu fail; jika kosong guna nama fail").setMaxLength(50)
+    option.setName("name").setDescription("Asset name for one file; defaults to the file name").setMaxLength(50)
   )
   .addStringOption((option) =>
-    option.setName("description").setDescription("Penerangan aset dan sumber lesen").setMaxLength(1000)
+    option.setName("description").setDescription("Asset description and license/source notes").setMaxLength(1000)
   )
   .addStringOption(speedOption);
 
 export const robloxHelpCommand = new SlashCommandBuilder()
   .setName("roblox-help")
-  .setDescription("Tunjukkan cara paling mudah menggunakan bot audio Roblox");
+  .setDescription("Show the easiest way to use the Roblox audio bot");
 
 export const quickUploadCommand = new SlashCommandBuilder()
   .setName("upload")
-  .setDescription("Cara mudah: pilih satu lagu dan tekan butang upload")
+  .setDescription("Easy mode: choose one audio file and confirm upload")
   .addAttachmentOption((option) =>
-    option.setName("file").setDescription("Pilih fail lagu anda").setRequired(true)
+    option.setName("file").setDescription("Choose your audio file").setRequired(true)
   )
   .addStringOption(speedOption);
 
 export const youtubeUploadCommand = new SlashCommandBuilder()
   .setName("yt")
-  .setDescription("Tampal link YouTube dan terus auto edit serta upload")
+  .setDescription("Paste a YouTube link, then auto edit and upload")
   .addStringOption((option) =>
-    option.setName("link").setDescription("Link satu video YouTube public").setRequired(true).setMaxLength(300)
+    option.setName("link").setDescription("One public YouTube video link").setRequired(true).setMaxLength(300)
   )
   .addBooleanOption((option) =>
     option
       .setName("rights_confirm")
-      .setDescription("Saya memiliki atau mempunyai lesen untuk audio ini")
+      .setDescription("I own or have a license for this audio")
       .setRequired(true)
   )
   .addStringOption(speedOption);
 
 export const menuCommand = new SlashCommandBuilder()
   .setName("menu")
-  .setDescription("Buka menu paling mudah untuk upload audio atau link YouTube");
+  .setDescription("Open the easiest menu for audio, direct links, or YouTube");
 
 export const robloxAccountCommand = new SlashCommandBuilder()
   .setName("roblox-account")
-  .setDescription("Sambung atau putuskan akaun Roblox peribadi dengan selamat");
+  .setDescription("Set up or update this server's Roblox upload credentials");
 
 export const robloxServerCommand = new SlashCommandBuilder()
   .setName("roblox-server")
-  .setDescription("Tetapkan destinasi creator Roblox untuk server ini")
+  .setDescription("Configure the Roblox creator destination for this server")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand((subcommand) =>
     subcommand
       .setName("set")
-      .setDescription("Set creator Roblox server ini")
+      .setDescription("Set this server's Roblox creator")
       .addStringOption((option) =>
         option
           .setName("creator_type")
-          .setDescription("Jenis creator Roblox")
+          .setDescription("Roblox creator type")
           .setRequired(true)
           .addChoices(
             { name: "Group", value: "Group" },
@@ -118,16 +118,16 @@ export const robloxServerCommand = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName("creator_id")
-          .setDescription("ID group/user Roblox untuk server ini")
+          .setDescription("Roblox group/user ID for this server")
           .setRequired(true)
           .setMaxLength(30)
       )
   )
   .addSubcommand((subcommand) =>
-    subcommand.setName("status").setDescription("Lihat destinasi creator Roblox server ini")
+    subcommand.setName("status").setDescription("View this server's Roblox creator destination")
   )
   .addSubcommand((subcommand) =>
-    subcommand.setName("clear").setDescription("Padam destinasi creator Roblox server ini")
+    subcommand.setName("clear").setDescription("Clear this server's Roblox creator setup")
   );
 
 export const allCommands = [

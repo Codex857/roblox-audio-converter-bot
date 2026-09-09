@@ -21,14 +21,14 @@ export function normalizeCreatorConfig(config = {}) {
   const rawCreatorType = String(config.creatorType || "").trim().toLowerCase();
   const creatorType = rawCreatorType === "group" ? "Group" : rawCreatorType === "user" ? "User" : String(config.creatorType || "").trim();
   const creatorId = String(config.creatorId || "").trim();
-  if (!CREATOR_TYPES.has(creatorType)) throw new Error("Pilih Group atau User sahaja.");
-  if (!/^\d+$/.test(creatorId)) throw new Error("Isi nombor ID sahaja. Jika pilih Group, isi Group ID. Jika pilih User, isi User ID.");
+  if (!CREATOR_TYPES.has(creatorType)) throw new Error("Choose only Group or User.");
+  if (!/^\d+$/.test(creatorId)) throw new Error("Enter numbers only. If you choose Group, enter the Group ID. If you choose User, enter the User ID.");
   return { creatorType, creatorId };
 }
 
 function validateGuildId(guildId) {
   const value = String(guildId || "");
-  if (!GUILD_ID.test(value)) throw new Error("Discord server ID tidak sah.");
+  if (!GUILD_ID.test(value)) throw new Error("Invalid Discord server ID.");
   return value;
 }
 
@@ -67,7 +67,7 @@ function decryptSecret(key, guildId, record) {
 
 export class GuildConfigStore {
   constructor({ directory, secret }) {
-    if (!directory) throw new Error("Direktori konfigurasi server diperlukan.");
+    if (!directory) throw new Error("Server configuration directory is required.");
     this.directory = directory;
     this.key = encryptionKey(secret);
     this.guilds = new Map();
@@ -124,7 +124,7 @@ export class GuildConfigStore {
       updatedBy: String(config.updatedBy || ""),
       updatedAt: new Date().toISOString()
     };
-    if (apiKey && !this.key) throw new Error("Secret enkripsi server belum tersedia.");
+    if (apiKey && !this.key) throw new Error("Server encryption secret is not available.");
     const diskRecord = {
       version: STORE_VERSION,
       creatorType: saved.creatorType,

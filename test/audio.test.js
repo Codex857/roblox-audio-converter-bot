@@ -38,21 +38,21 @@ test("validateAttachment rejects unsupported files", () => {
     name: "track.exe",
     size: 1024,
     url: "https://cdn.discordapp.com/attachments/1/2/track.exe"
-  }), /Format input tidak disokong/);
+  }), /Unsupported input format/);
 });
 
 test("bitrateForQuality maps supported presets", () => {
   assert.equal(bitrateForQuality("compact"), "128k");
   assert.equal(bitrateForQuality("standard"), "160k");
   assert.equal(bitrateForQuality("high"), "192k");
-  assert.throws(() => bitrateForQuality("extreme"), /kualiti tidak sah/);
+  assert.throws(() => bitrateForQuality("extreme"), /Invalid quality option/);
 });
 
 test("speed options are normalized and included in the audio filter", () => {
   assert.equal(normalizeAudioSpeed("1"), 1);
   assert.equal(normalizeAudioSpeed("1.5"), 1.5);
   assert.equal(normalizeAudioSpeed("2"), 2);
-  assert.throws(() => normalizeAudioSpeed("1.25"), /Kelajuan audio/);
+  assert.throws(() => normalizeAudioSpeed("1.25"), /Audio speed/);
   assert.match(audioFilterForOptions({ speed: 1.5, normalize: true }), /atempo=1\.5/);
   assert.doesNotMatch(audioFilterForOptions({ speed: 1, normalize: true }), /atempo=/);
 });
