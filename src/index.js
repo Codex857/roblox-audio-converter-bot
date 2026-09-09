@@ -120,9 +120,9 @@ client.on(Events.GuildCreate, (guild) => {
   void channel.send({
     content: [
       "Terima kasih invite bot audio Roblox.",
-      "Sebelum upload digunakan di server ini, admin perlu set destinasi Roblox:",
-      "`/roblox-server set creator_type:Group creator_id:ID_GROUP_ROBLOX`",
-      "Paling mudah: admin tekan `/menu` > Akaun Roblox, kemudian isi ROBLOX_API_KEY, CREATOR_TYPE dan CREATOR_ID server ini."
+      "Sebelum upload digunakan di server ini, admin buka `/menu` dahulu.",
+      "Bot akan minta `ROBLOX_API_KEY`, `CREATOR_TYPE` dan `CREATOR_ID` server ini.",
+      "Selepas setup siap, `/menu` akan buka pilihan upload biasa."
     ].join("\n"),
     allowedMentions: { parse: [] }
   }).catch(() => {});
@@ -830,15 +830,15 @@ async function handleMenuButton(interaction) {
         "🎵 **Cara guna menu audio Roblox**",
         "**Developer/admin server:**",
         "1. Buat Roblox Open Cloud API key dengan `asset:read` dan `asset:write`.",
-        "2. Tekan **Akaun Roblox**, paste `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, isi `CREATOR_ID`.",
-        "3. Check setup: `/roblox-server status`.",
-        "4. Jika Group, API key mesti diberi access ke Group ID itu dalam Roblox Creator Dashboard.",
+        "2. Selepas invite bot, admin buka `/menu`; bot terus minta `ROBLOX_API_KEY`, `CREATOR_TYPE`, `CREATOR_ID`.",
+        "3. Kalau server sudah setup, butang **Akaun Roblox** boleh dipakai untuk update setup.",
+        "4. Check setup: `/roblox-server status`.",
+        "5. Jika Group, API key mesti diberi access ke Group ID itu dalam Roblox Creator Dashboard.",
         "",
         "**User biasa:**",
         "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
-        "2. User tekan **Akaun Roblox** untuk connect akaun Roblox sendiri.",
-        "3. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
-        "4. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
+        "2. Tandakan pengesahan bahawa anda memiliki atau mempunyai lesen audio tersebut.",
+        "3. Hantar borang dan tunggu bot memberikan Asset ID, JSON serta Lua.",
         "",
         "Link audio menyokong Dropbox, Google Drive, Discord CDN, Cloudflare R2 dan Amazon S3. Link YouTube mesti menggunakan pilihan YouTube.",
         "Semua upload masih melalui moderation Roblox. Playlist, live, video private dan DRM tidak disokong."
@@ -1005,6 +1005,19 @@ async function handleInteraction(interaction) {
   if (!["menu", "upload", "yt", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server"].includes(interaction.commandName)) return;
 
   if (interaction.commandName === "menu") {
+    const serverConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
+    if (interaction.inGuild() && (!serverConfig || !serverConfig.apiKeyConfigured)) {
+      if (ensureGuildAdmin(interaction)) {
+        await interaction.showModal(robloxServerSetupModal());
+        return;
+      }
+      await interaction.reply({
+        content: "❌ Server ini belum setup Roblox. Minta admin buka `/menu` untuk isi `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, dan isi `CREATOR_ID`.",
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
+      return;
+    }
     await interaction.reply({
       content: [
         "🎵 **Menu Audio Roblox**",
@@ -1044,7 +1057,7 @@ async function handleInteraction(interaction) {
         "**Untuk developer/admin server:**",
         "1. Buat API key di Roblox Creator Dashboard > Credentials.",
         "2. Permission API key: Assets `asset:read` dan `asset:write`.",
-        "3. Tekan `/menu` > **Akaun Roblox**, masukkan `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, isi `CREATOR_ID`.",
+        "3. Selepas invite bot, admin buka `/menu`; bot terus minta `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, isi `CREATOR_ID`.",
         "4. Jika pilih Group, `CREATOR_ID` ialah Group ID dan API key mesti ada access ke group itu.",
         "5. Jika pilih User, `CREATOR_ID` ialah User ID pemilik API key.",
         "6. Guna `/roblox-server status` untuk confirm ID betul. Guna `/roblox-server clear` kalau tersalah set.",
