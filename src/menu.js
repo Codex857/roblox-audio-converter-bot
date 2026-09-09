@@ -142,3 +142,33 @@ export function directAudioUploadModal() {
       rightsLabel()
     );
 }
+
+export function robloxServerSetupModal() {
+  return new ModalBuilder()
+    .setCustomId("music-menu:server-setup-modal")
+    .setTitle("Setup Creator Roblox Server")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Jenis creator Roblox")
+        .setDescription("Isi Group atau User")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("creator_type")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Group")
+            .setMaxLength(10)
+            .setRequired(true)
+        ),
+      new LabelBuilder()
+        .setLabel("ID group/user Roblox")
+        .setDescription("Masukkan nombor ID Roblox yang betul untuk server ini")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("creator_id")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("123456789")
+            .setMaxLength(30)
+            .setRequired(true)
+        )
+    );
+}

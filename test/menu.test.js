@@ -4,6 +4,7 @@ import {
   directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
+  robloxServerSetupModal,
   youtubeFallbackComponents,
   youtubeUploadModal
 } from "../src/menu.js";
@@ -59,4 +60,10 @@ test("YouTube modal contains a link field, speed picker and rights confirmation"
   assert.equal(modal.components[1].component.custom_id, "audio_speed");
   assert.equal(modal.components[2].component.type, 23);
   assert.equal(modal.components[2].component.custom_id, "rights_confirm");
+});
+
+test("Roblox server setup modal asks for creator type and ID", () => {
+  const modal = robloxServerSetupModal().toJSON();
+  assert.equal(modal.custom_id, "music-menu:server-setup-modal");
+  assert.deepEqual(modal.components.map((row) => row.component.custom_id), ["creator_type", "creator_id"]);
 });

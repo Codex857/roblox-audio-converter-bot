@@ -22,6 +22,7 @@ import {
   directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
+  robloxServerSetupModal,
   youtubeFallbackComponents,
   youtubeUploadModal
 } from "./menu.js";
@@ -696,11 +697,15 @@ async function handleQuickUploadButton(interaction) {
 }
 
 async function showRobloxAccount(interaction) {
+  if (ensureGuildAdmin(interaction)) {
+    await interaction.showModal(robloxServerSetupModal());
+    return;
+  }
   if (!robloxOAuth.configured) {
     await interaction.reply({
       content: [
-        "❌ Roblox OAuth belum dikonfigurasi di Railway.",
-        "Pemilik bot perlu set `ROBLOX_OAUTH_CLIENT_ID` dan `ROBLOX_OAUTH_CLIENT_SECRET` dahulu."
+        "❌ Akaun Roblox user belum tersedia kerana OAuth belum dikonfigurasi di Railway.",
+        "Minta admin server tekan **Akaun Roblox** untuk isi Roblox Group/User ID server dahulu."
       ].join("\n"),
       flags: MessageFlags.Ephemeral
     });
@@ -855,6 +860,38 @@ async function handleMenuButton(interaction) {
 }
 
 async function handleMenuModal(interaction) {
+  if (interaction.customId === "music-menu:server-setup-modal") {
+    if (!ensureGuildAdmin(interaction)) {
+      await interaction.reply({
+        content: "❌ Hanya admin dengan permission Manage Server boleh set creator Roblox server ini.",
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+    try {
+      const saved = await guildConfigStore.set(interaction.guildId, {
+        creatorType: interaction.fields.getTextInputValue("creator_type"),
+        creatorId: interaction.fields.getTextInputValue("creator_id"),
+        updatedBy: interaction.user.id
+      });
+      await interaction.reply({
+        content: [
+          `✅ Server ini sekarang diset ke Roblox ${saved.creatorType} ${saved.creatorId}.`,
+          "Sebelum upload, user perlu connect Roblox sendiri dengan `/roblox-account` jika OAuth sudah aktif.",
+          "Gunakan `/roblox-server status` untuk check semula ID ini."
+        ].join("\n"),
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
+    } catch (error) {
+      await interaction.reply({
+        content: `❌ Setup gagal: ${errorMessage(error)}`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+    return true;
+  }
+
   if (![
     "music-menu:file-modal",
     "music-menu:audio-link-modal",
