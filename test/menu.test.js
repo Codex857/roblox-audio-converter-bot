@@ -11,12 +11,16 @@ import {
 
 test("main menu offers file, direct link, YouTube, help and account buttons", () => {
   const rows = mainMenuComponents().map((row) => row.toJSON());
-  assert.deepEqual(rows[0].components.map((component) => component.custom_id), [
+  assert.deepEqual(rows.map((row) => row.components.map((component) => component.custom_id)), [
+    [
     "music-menu:file",
     "music-menu:audio-link",
-    "music-menu:youtube",
-    "music-menu:help",
-    "music-menu:account"
+      "music-menu:youtube"
+    ],
+    [
+      "music-menu:account",
+      "music-menu:help"
+    ]
   ]);
 });
 

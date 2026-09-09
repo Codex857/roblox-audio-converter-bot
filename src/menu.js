@@ -13,33 +13,37 @@ import {
 } from "discord.js";
 
 export function mainMenuComponents() {
-  return [new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("music-menu:file")
-      .setLabel("Pilih Fail Audio")
-      .setEmoji("📁")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("music-menu:audio-link")
-      .setLabel("Paste Link Audio")
-      .setEmoji("🌐")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId("music-menu:youtube")
-      .setLabel("YouTube Auto Upload")
-      .setEmoji("🔗")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId("music-menu:help")
-      .setLabel("Bantuan")
-      .setEmoji("❓")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("music-menu:account")
-      .setLabel("Akaun Roblox")
-      .setEmoji("👤")
-      .setStyle(ButtonStyle.Secondary)
-  )];
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("music-menu:file")
+        .setLabel("Upload Fail")
+        .setEmoji("📁")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("music-menu:audio-link")
+        .setLabel("Paste Link")
+        .setEmoji("🌐")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("music-menu:youtube")
+        .setLabel("YouTube")
+        .setEmoji("🔗")
+        .setStyle(ButtonStyle.Danger)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("music-menu:account")
+        .setLabel("Setup Roblox")
+        .setEmoji("⚙️")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("music-menu:help")
+        .setLabel("Cara Guna")
+        .setEmoji("❓")
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ];
 }
 
 export function youtubeFallbackComponents() {

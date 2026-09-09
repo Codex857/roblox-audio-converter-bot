@@ -236,8 +236,8 @@ function resolveUploadTarget(interaction) {
 async function replyUploadTargetRequired(interaction) {
   const guildConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
   const content = guildConfig && !guildConfig.apiKeyConfigured
-    ? "❌ Server ini ada creator ID, tapi belum ada ROBLOX_API_KEY. Admin tekan **Akaun Roblox** dalam `/menu` untuk isi API key."
-    : "❌ Server ini belum setup Roblox API key. Admin tekan **Akaun Roblox** dalam `/menu`, paste ROBLOX_API_KEY, pilih Group/User, dan isi CREATOR_ID.";
+    ? "❌ Server ini ada creator ID, tapi belum ada ROBLOX_API_KEY. Admin tekan **Setup Roblox** dalam `/menu` untuk isi API key."
+    : "❌ Server ini belum setup Roblox API key. Admin buka `/menu`, paste ROBLOX_API_KEY, pilih Group/User, dan isi CREATOR_ID.";
   await interaction.reply({
     content,
     components: robloxOAuth.configured ? makeRobloxConnectButton(interaction.user.id) : [],
@@ -711,7 +711,7 @@ async function showRobloxAccount(interaction) {
     await interaction.reply({
       content: [
         "❌ Server ini belum ada Roblox API key sendiri.",
-        "Minta admin server tekan **Akaun Roblox** untuk isi `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, dan isi `CREATOR_ID`."
+        "Minta admin server buka `/menu` atau tekan **Setup Roblox** untuk isi `ROBLOX_API_KEY`, pilih `CREATOR_TYPE`, dan isi `CREATOR_ID`."
       ].join("\n"),
       flags: MessageFlags.Ephemeral
     });
@@ -810,7 +810,7 @@ async function showRobloxServer(interaction) {
       `✅ Server ini sekarang diset ke Roblox ${saved.creatorType} ${saved.creatorId}.`,
       saved.apiKeyConfigured
         ? "API key server ini sudah tersimpan encrypted."
-        : "API key belum diset. Admin boleh tekan **Akaun Roblox** dalam `/menu` untuk isi API key."
+        : "API key belum diset. Admin boleh tekan **Setup Roblox** dalam `/menu` untuk isi API key."
     ].join("\n"),
     flags: MessageFlags.Ephemeral
   });
@@ -835,7 +835,7 @@ async function handleMenuButton(interaction) {
         "4. Jika server belum setup, bot terus buka borang `ROBLOX_API_KEY`, `CREATOR_TYPE`, `CREATOR_ID`.",
         "5. Jika pilih `Group`, `CREATOR_ID` ialah Group ID dan API key mesti ada access ke group itu.",
         "6. Jika pilih `User`, `CREATOR_ID` ialah User ID pemilik API key.",
-        "7. Check setup: `/roblox-server status`. Ubah semula: tekan **Akaun Roblox**.",
+        "7. Check setup: `/roblox-server status`. Ubah semula: tekan **Setup Roblox**.",
         "",
         "**User biasa:**",
         "1. Tekan **Pilih Fail Audio** untuk memilih 1–5 fail, **Paste Link Audio** untuk link fail public, atau **YouTube Auto Upload** untuk satu video public.",
@@ -1020,10 +1020,14 @@ async function handleInteraction(interaction) {
       });
       return;
     }
+    const destinationLine = serverConfig
+      ? `Destinasi: Roblox ${serverConfig.creatorType} ${serverConfig.creatorId}.`
+      : "Destinasi: default bot.";
     await interaction.reply({
       content: [
         "🎵 **Menu Audio Roblox**",
-        "Pilih fail, paste link audio public, atau gunakan YouTube. Bot terus convert, edit dan upload selepas borang dihantar."
+        destinationLine,
+        "Pilih cara upload di bawah. Bot akan convert, edit, pilih speed, dan upload ke Roblox selepas anda confirm hak audio."
       ].join("\n"),
       components: mainMenuComponents(),
       flags: MessageFlags.Ephemeral,
@@ -1067,7 +1071,7 @@ async function handleInteraction(interaction) {
         "8. Guna `/roblox-server status` untuk confirm. Guna `/roblox-server clear` kalau tersalah set.",
         "",
         "**Untuk user biasa:**",
-        "**Paling mudah:** taip `/menu`, kemudian tekan **Pilih Fail Audio**, **Paste Link Audio** atau **YouTube Auto Upload**.",
+        "**Paling mudah:** taip `/menu`, kemudian tekan **Upload Fail**, **Paste Link** atau **YouTube**.",
         "Isi borang ringkas, tandakan pengesahan hak audio, kemudian hantar.",
         "",
         "Menu menyokong 1–5 fail, satu link fail audio public, atau satu link video YouTube public.",
