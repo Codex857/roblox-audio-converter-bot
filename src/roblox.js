@@ -95,7 +95,7 @@ export function createRobloxUploader(config = {}) {
   async function upload({ filePath, fileName, displayName, description }) {
     if (!configured) throw new Error("Roblox Open Cloud is not configured by the bot owner.");
     const name = cleanText(displayName, 50, "Asset name");
-    const desc = String(description || "Uploaded from Discord using licensed audio").trim().slice(0, 1000);
+    const desc = String(description || "by codex eclipse").trim().slice(0, 1000);
     const creatorKey = creatorType === "Group" ? "groupId" : "userId";
     const metadata = {
       assetType: "Audio",

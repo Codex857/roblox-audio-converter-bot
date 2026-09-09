@@ -43,7 +43,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.9.0";
+const BOT_VERSION = "2.9.1";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
@@ -87,6 +87,7 @@ const defaultUploaderUsers = new Set(String(process.env.ROBLOX_DEFAULT_USER_IDS 
 const MAX_PENDING_FILES = 10;
 const MAX_PENDING_FILES_PER_USER = 5;
 const QUICK_CONFIRM_MS = 60_000;
+const DEFAULT_ASSET_DESCRIPTION = "by codex eclipse";
 let activeFileCount = 0;
 let activeUserId = null;
 let processing = false;
@@ -463,7 +464,7 @@ async function processDirectAudioUploadJob({ interaction, directAudio, uploader 
       filePath: outputPath,
       fileName: outputName,
       displayName,
-      description: "Audio from a user-confirmed licensed direct source"
+      description: DEFAULT_ASSET_DESCRIPTION
     });
     await editStatus(interaction, "⏳ Roblox is processing the audio...");
     const assetId = await uploader.waitForAsset(operationPath);
@@ -507,7 +508,7 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
       filePath: outputPath,
       fileName: outputName,
       displayName,
-      description: "Audio from a user-confirmed licensed YouTube source"
+      description: DEFAULT_ASSET_DESCRIPTION
     });
     await editStatus(interaction, "⏳ Roblox is processing the audio...");
     const assetId = await uploader.waitForAsset(operationPath);
@@ -733,7 +734,7 @@ async function handleQuickUploadButton(interaction) {
       uploader: pending.target.uploader,
       upload: {
         name: null,
-        description: "Uploaded from Discord using licensed audio"
+        description: DEFAULT_ASSET_DESCRIPTION
       }
     });
   }
@@ -1005,7 +1006,7 @@ async function handleMenuModal(interaction) {
       uploader: target.uploader,
       upload: {
         name: null,
-        description: "Uploaded from Discord using licensed audio"
+        description: DEFAULT_ASSET_DESCRIPTION
       }
     });
     return true;
@@ -1175,7 +1176,7 @@ async function handleInteraction(interaction) {
     uploader: target?.uploader,
     upload: directUpload ? {
       name: interaction.options.getString("name") || null,
-      description: interaction.options.getString("description") || "Uploaded from Discord using licensed audio"
+      description: interaction.options.getString("description") || DEFAULT_ASSET_DESCRIPTION
     } : null
   };
   await enqueueJob(job);
