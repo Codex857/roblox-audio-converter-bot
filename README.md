@@ -8,7 +8,7 @@ The bot can:
 - accept 1-5 uploaded audio files;
 - accept one public direct audio link from supported hosts;
 - accept one public YouTube link, convert it to MP3, edit it, and upload it when YouTube allows the cloud server request;
-- offer a manual MP3/WAV upload fallback when YouTube blocks the server;
+- offer manual MP3/WAV upload, direct-link upload, and help-tip fallbacks when YouTube blocks the server;
 - upload to Roblox Open Cloud and return the Asset ID, JSON, and Lua output;
 - let each Discord server configure its own Roblox API key, creator type, and creator ID.
 
@@ -172,7 +172,13 @@ The YouTube feature uses `yt-dlp`. Docker installs a pinned verified binary.
 
 Use YouTube only for public videos/audio that you own, are licensed to use, and are allowed to download. The bot does not use user cookies, does not open private content, and does not bypass DRM.
 
-If YouTube blocks the Railway/cloud server, the bot will not ask for login. It will show a button where the user can upload the original MP3/WAV manually, then the bot continues editing and uploading to Roblox.
+If YouTube blocks the Railway/cloud server, the bot will not ask for login. It will show three buttons:
+
+- **Upload MP3/WAV Now** - upload the original file manually, then the bot continues editing and uploading to Roblox.
+- **Paste Direct Link** - paste a public direct audio file link from a supported host.
+- **YouTube Tips** - shows safe troubleshooting advice inside Discord.
+
+Common open-source Discord music bots use the same practical stack: `yt-dlp` plus FFmpeg. Several projects also note that cloud/datacenter IPs may be blocked by YouTube, so the reliable production options are a manual/direct-link fallback or running the bot on a trusted home/server IP.
 
 ## Deploy 24/7 on Railway
 

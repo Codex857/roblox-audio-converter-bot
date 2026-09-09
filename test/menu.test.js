@@ -38,9 +38,13 @@ test("direct audio modal contains a link field, speed picker and rights confirma
 
 test("blocked YouTube flow offers an immediate file upload fallback", () => {
   const rows = youtubeFallbackComponents().map((row) => row.toJSON());
-  assert.equal(rows[0].components.length, 1);
+  assert.equal(rows[0].components.length, 3);
   assert.equal(rows[0].components[0].custom_id, "music-menu:file");
   assert.equal(rows[0].components[0].label, "Upload MP3/WAV Now");
+  assert.equal(rows[0].components[1].custom_id, "music-menu:audio-link");
+  assert.equal(rows[0].components[1].label, "Paste Direct Link");
+  assert.equal(rows[0].components[2].custom_id, "music-menu:youtube-tips");
+  assert.equal(rows[0].components[2].label, "YouTube Tips");
 });
 
 test("file modal accepts up to five files and requires speed plus rights confirmation", () => {

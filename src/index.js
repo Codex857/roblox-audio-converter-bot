@@ -43,7 +43,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.8.8";
+const BOT_VERSION = "2.8.9";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
@@ -497,7 +497,7 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
         content: [
           "⚠️ **YouTube blocked the cloud server request.**",
           "The bot will not ask for your login or cookies.",
-          "Press the button below and upload the original MP3/WAV; the bot will auto-edit and upload it to Roblox."
+          "Choose one option below: upload the original MP3/WAV, paste a direct public audio file link, or read the YouTube tips."
         ].join("\n"),
         files: [],
         components: youtubeFallbackComponents(),
@@ -844,6 +844,24 @@ async function handleMenuButton(interaction) {
         "",
         "Audio links support Dropbox, Google Drive, Discord CDN, Cloudflare R2, and Amazon S3. YouTube links must use the YouTube option.",
         "All uploads still go through Roblox moderation. Playlists, live streams, private videos, and DRM are not supported."
+      ].join("\n"),
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return true;
+  }
+
+  if (interaction.customId === "music-menu:youtube-tips") {
+    await interaction.reply({
+      content: [
+        "💡 **YouTube tips**",
+        "YouTube can block cloud servers like Railway even when the video is public.",
+        "",
+        "**Fastest fix:** download/export the audio yourself, then press **Upload MP3/WAV Now**.",
+        "**Direct link fix:** upload your licensed audio file to Dropbox, Google Drive, Discord CDN, Cloudflare R2, or Amazon S3, then press **Paste Direct Link**.",
+        "**Best 24/7 fix:** run the bot on a trusted home/server IP instead of a datacenter IP.",
+        "",
+        "The bot does not use cookies, private videos, DRM bypasses, or account login workarounds."
       ].join("\n"),
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }

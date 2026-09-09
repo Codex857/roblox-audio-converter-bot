@@ -52,7 +52,17 @@ export function youtubeFallbackComponents() {
       .setCustomId("music-menu:file")
       .setLabel("Upload MP3/WAV Now")
       .setEmoji("📁")
-      .setStyle(ButtonStyle.Primary)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("music-menu:audio-link")
+      .setLabel("Paste Direct Link")
+      .setEmoji("🌐")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("music-menu:youtube-tips")
+      .setLabel("YouTube Tips")
+      .setEmoji("💡")
+      .setStyle(ButtonStyle.Secondary)
   )];
 }
 
@@ -92,7 +102,7 @@ export function fileUploadModal() {
     .addLabelComponents(
       new LabelBuilder()
         .setLabel("Choose 1 to 5 audio files")
-        .setDescription("MP3, OGG, WAV, FLAC, M4A atau AAC")
+        .setDescription("MP3, OGG, WAV, FLAC, M4A, or AAC")
         .setFileUploadComponent(
           new FileUploadBuilder()
             .setCustomId("audio_files")
@@ -133,7 +143,7 @@ export function directAudioUploadModal() {
     .addLabelComponents(
       new LabelBuilder()
         .setLabel("Direct public audio file link")
-        .setDescription("Dropbox, Google Drive, Discord CDN, R2 atau S3")
+        .setDescription("Dropbox, Google Drive, Discord CDN, R2, or S3")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("audio_link")
