@@ -43,7 +43,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.8.9";
+const BOT_VERSION = "2.9.0";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
@@ -92,6 +92,7 @@ let activeUserId = null;
 let processing = false;
 let youtubeReady = false;
 let youtubeToolVersion = null;
+let youtubeRefreshPromise = null;
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Bot is online as ${readyClient.user.tag}`);
@@ -128,7 +129,28 @@ client.on(Events.GuildCreate, (guild) => {
   }).catch(() => {});
 });
 
-void checkYouTubeTool(ytDlpPath)
+async function refreshYouTubeDownloader(reason = "startup") {
+  if (!youtubeRefreshPromise) {
+    youtubeRefreshPromise = checkYouTubeTool(ytDlpPath)
+      .then((version) => {
+        youtubeReady = true;
+        youtubeToolVersion = version;
+        console.log(`YouTube downloader ready after ${reason}: yt-dlp ${version}`);
+        return version;
+      })
+      .catch((error) => {
+        youtubeReady = false;
+        console.error(`YouTube downloader refresh failed after ${reason}:`, error.message);
+        throw error;
+      })
+      .finally(() => {
+        youtubeRefreshPromise = null;
+      });
+  }
+  return youtubeRefreshPromise;
+}
+
+void refreshYouTubeDownloader("startup")
   .then((version) => {
     youtubeReady = true;
     youtubeToolVersion = version;
@@ -493,9 +515,25 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
   } catch (error) {
     const message = errorMessage(error);
     if (/YouTube is asking for login|blocking the cloud server address/i.test(message)) {
+      if (!youtube.retriedAfterRefresh) {
+        await editStatus(interaction, "♻️ YouTube blocked the first attempt. Refreshing the YouTube downloader and retrying once...");
+        try {
+          await refreshYouTubeDownloader("YouTube block");
+          return processYouTubeUploadJob({
+            interaction,
+            youtube: { ...youtube, retriedAfterRefresh: true },
+            uploader
+          });
+        } catch (refreshError) {
+          console.warn("YouTube downloader refresh did not fix the block:", errorMessage(refreshError));
+        }
+      }
       await interaction.editReply({
         content: [
           "⚠️ **YouTube blocked the cloud server request.**",
+          youtube.retriedAfterRefresh
+            ? "The bot refreshed the YouTube downloader and retried once, but YouTube still blocked the server."
+            : "The bot could not refresh the YouTube downloader enough to clear the block.",
           "The bot will not ask for your login or cookies.",
           "Choose one option below: upload the original MP3/WAV, paste a direct public audio file link, or read the YouTube tips."
         ].join("\n"),
