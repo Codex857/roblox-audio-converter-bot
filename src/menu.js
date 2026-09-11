@@ -17,7 +17,7 @@ export function mainMenuComponents() {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("music-menu:file")
-        .setLabel("Upload File")
+        .setLabel("Start Upload")
         .setEmoji("📁")
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()

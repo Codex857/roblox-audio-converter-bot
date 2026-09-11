@@ -60,6 +60,8 @@ For Roblox setup:
 - If `CREATOR_TYPE=Group`, `CREATOR_ID` must be the Roblox Group ID.
 - If `CREATOR_TYPE=User`, `CREATOR_ID` must be the Roblox User ID.
 - The server API key is stored encrypted and is never shown back in Discord.
+- Before saving, the bot verifies that the selected Roblox User or Group exists.
+- `/roblox-server status` shows only a short one-way API-key fingerprint, never the key itself.
 
 ## Discord commands
 
@@ -67,13 +69,18 @@ For Roblox setup:
 - `/roblox-help` - shows a private English help guide.
 - `/roblox-server status` - shows this Discord server's Roblox creator setup.
 - `/roblox-server set` - manually sets creator type and creator ID only.
+- `/roblox-server role-add` - allows one Discord role to upload.
+- `/roblox-server role-remove` - removes one role from the upload allowlist.
+- `/roblox-server roles` - shows the current upload-role policy.
+- `/roblox-server roles-clear` - allows every server member to upload again.
 - `/roblox-server clear` - clears this server's Roblox setup.
 - `/upload` - quick single-file upload flow.
 - `/yt` - YouTube link flow.
 - `/roblox-audio` - converts a file and sends back an OGG for manual upload.
 - `/roblox-upload` - uploads 1-5 files directly to Roblox.
 
-The easiest path for normal users is `/menu` > **Upload File**, **Paste Link**, or **YouTube**.
+The easiest path for normal users is `/menu` > **Start Upload**, **Paste Link**, or **YouTube**.
+Admins always retain upload access. If no upload roles are configured, every server member may upload.
 
 ## Upload options
 
@@ -135,6 +142,7 @@ Per-server setup storage:
 - `SERVER_CONFIG_SECRET` for a dedicated encryption secret
 
 If `SERVER_CONFIG_SECRET` is empty, the bot uses `DISCORD_TOKEN` as the encryption secret for per-server API keys.
+For production, set a stable random `SERVER_CONFIG_SECRET` so rotating the Discord token does not make saved credentials unreadable.
 
 Optional Roblox OAuth:
 

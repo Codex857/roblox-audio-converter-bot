@@ -1,10 +1,11 @@
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const GUILD_ID = /^\d{15,25}$/;
 const CREATOR_TYPES = new Set(["User", "Group"]);
-const STORE_VERSION = 2;
+const STORE_VERSION = 3;
+const MAX_UPLOAD_ROLES = 10;
 
 function encryptionKey(secret) {
   if (!secret) return null;
@@ -26,6 +27,37 @@ export function normalizeCreatorConfig(config = {}) {
   return { creatorType, creatorId };
 }
 
+export function normalizeRobloxApiKey(value) {
+  const apiKey = String(value || "").trim();
+  if (apiKey.length < 20 || apiKey.length > 2000) {
+    throw new Error("Enter a valid Roblox Open Cloud API key.");
+  }
+  if (!/^[\x21-\x7e]+$/.test(apiKey)) {
+    throw new Error("The Roblox API key must not contain spaces or line breaks.");
+  }
+  return apiKey;
+}
+
+export function normalizeUploadRoleIds(values = []) {
+  const roleIds = [...new Set((Array.isArray(values) ? values : [values])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean))];
+  if (roleIds.length > MAX_UPLOAD_ROLES) throw new Error(`A server can configure up to ${MAX_UPLOAD_ROLES} upload roles.`);
+  if (roleIds.some((roleId) => !GUILD_ID.test(roleId))) throw new Error("Invalid Discord role ID.");
+  return roleIds;
+}
+
+export function canUseConfiguredUploadRoles(config, memberRoleIds = [], isAdmin = false) {
+  const allowed = config?.uploadRoleIds || [];
+  if (isAdmin || allowed.length === 0) return true;
+  const memberRoles = new Set(memberRoleIds);
+  return allowed.some((roleId) => memberRoles.has(roleId));
+}
+
+function apiKeyFingerprint(apiKey) {
+  return apiKey ? createHash("sha256").update(apiKey).digest("hex").slice(0, 8) : null;
+}
+
 function validateGuildId(guildId) {
   const value = String(guildId || "");
   if (!GUILD_ID.test(value)) throw new Error("Invalid Discord server ID.");
@@ -38,6 +70,8 @@ function publicConfig(config) {
     creatorType: config.creatorType,
     creatorId: config.creatorId,
     apiKeyConfigured: Boolean(config.apiKey),
+    apiKeyFingerprint: apiKeyFingerprint(config.apiKey),
+    uploadRoleIds: [...(config.uploadRoleIds || [])],
     updatedBy: config.updatedBy || null,
     updatedAt: config.updatedAt || null
   };
@@ -91,7 +125,13 @@ export class GuildConfigStore {
         const apiKey = record.apiKeyEncrypted && this.key
           ? decryptSecret(this.key, match[1], record.apiKeyEncrypted)
           : "";
-        this.guilds.set(match[1], { ...config, apiKey, updatedBy: record.updatedBy, updatedAt: record.updatedAt });
+        this.guilds.set(match[1], {
+          ...config,
+          apiKey,
+          uploadRoleIds: normalizeUploadRoleIds(record.uploadRoleIds || []),
+          updatedBy: record.updatedBy,
+          updatedAt: record.updatedAt
+        });
       } catch {
         this.corruptFiles += 1;
       }
@@ -117,10 +157,12 @@ export class GuildConfigStore {
   async set(guildId, config) {
     const id = validateGuildId(guildId);
     const existing = this.guilds.get(id);
-    const apiKey = String(config.apiKey || existing?.apiKey || "").trim();
+    const suppliedApiKey = String(config.apiKey || "").trim();
+    const apiKey = suppliedApiKey ? normalizeRobloxApiKey(suppliedApiKey) : existing?.apiKey || "";
     const saved = {
       ...normalizeCreatorConfig(config),
       apiKey,
+      uploadRoleIds: normalizeUploadRoleIds(config.uploadRoleIds ?? existing?.uploadRoleIds ?? []),
       updatedBy: String(config.updatedBy || ""),
       updatedAt: new Date().toISOString()
     };
@@ -130,6 +172,7 @@ export class GuildConfigStore {
       creatorType: saved.creatorType,
       creatorId: saved.creatorId,
       apiKeyEncrypted: apiKey ? encryptSecret(this.key, id, apiKey) : null,
+      uploadRoleIds: saved.uploadRoleIds,
       updatedBy: saved.updatedBy,
       updatedAt: saved.updatedAt
     };
@@ -144,6 +187,13 @@ export class GuildConfigStore {
     }
     this.guilds.set(id, saved);
     return publicConfig(saved);
+  }
+
+  async setUploadRoles(guildId, uploadRoleIds, updatedBy) {
+    const id = validateGuildId(guildId);
+    const existing = this.guilds.get(id);
+    if (!existing) throw new Error("Set up this server's Roblox creator before configuring upload roles.");
+    return this.set(id, { ...existing, uploadRoleIds, updatedBy });
   }
 
   async delete(guildId) {

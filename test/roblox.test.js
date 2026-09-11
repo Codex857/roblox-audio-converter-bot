@@ -5,7 +5,8 @@ import {
   canUseRobloxUpload,
   createRobloxUploader,
   normalizeOperationPath,
-  robloxApiError
+  robloxApiError,
+  validateRobloxCreator
 } from "../src/roblox.js";
 
 test("Roblox uploader stays disabled without all credentials", () => {
@@ -65,6 +66,34 @@ test("operation paths and asset IDs accept supported Roblox response shapes", ()
 test("Roblox API failures use useful messages", () => {
   assert.match(robloxApiError(413), /too large/);
   assert.match(robloxApiError(429, { error: { message: "quota reached" } }), /quota reached/);
+});
+
+test("Roblox creator validation confirms the selected user or group", async () => {
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    return new Response(JSON.stringify({ name: "Eclipse Creator" }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  };
+  assert.deepEqual(await validateRobloxCreator({ creatorType: "Group", creatorId: "526037126", fetchImpl }), {
+    creatorType: "Group",
+    creatorId: "526037126",
+    name: "Eclipse Creator"
+  });
+  assert.equal(calls[0], "https://groups.roblox.com/v1/groups/526037126");
+});
+
+test("Roblox creator validation rejects missing creator IDs", async () => {
+  await assert.rejects(
+    validateRobloxCreator({
+      creatorType: "User",
+      creatorId: "404",
+      fetchImpl: async () => new Response("{}", { status: 404 })
+    }),
+    /does not exist/
+  );
 });
 
 test("asset polling retries a temporary Roblox failure", async () => {

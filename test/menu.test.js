@@ -22,6 +22,7 @@ test("main menu offers file, direct link, YouTube, help and account buttons", ()
       "music-menu:help"
     ]
   ]);
+  assert.equal(rows[0].components[0].label, "Start Upload");
 });
 
 test("direct audio modal contains a link field, speed picker and rights confirmation", () => {

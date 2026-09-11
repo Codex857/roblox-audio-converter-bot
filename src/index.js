@@ -15,9 +15,14 @@ import {
 } from "discord.js";
 import ffmpegPath from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
-import { canUseRobloxUpload, createRobloxUploader } from "./roblox.js";
+import { canUseRobloxUpload, createRobloxUploader, validateRobloxCreator } from "./roblox.js";
 import { createRobloxOAuth } from "./roblox-oauth.js";
-import { GuildConfigStore, normalizeCreatorConfig } from "./guild-config-store.js";
+import {
+  GuildConfigStore,
+  canUseConfiguredUploadRoles,
+  normalizeCreatorConfig,
+  normalizeRobloxApiKey
+} from "./guild-config-store.js";
 import {
   directAudioUploadModal,
   fileUploadModal,
@@ -43,7 +48,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "2.9.1";
+const BOT_VERSION = "3.0.0";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
@@ -67,6 +72,9 @@ const guildConfigStore = await new GuildConfigStore({
   directory: join(dataDirectory, "guild-creator-configs"),
   secret: process.env.SERVER_CONFIG_SECRET || token
 }).init();
+if (!process.env.SERVER_CONFIG_SECRET?.trim()) {
+  console.warn("SERVER_CONFIG_SECRET is not set; encrypted server credentials are using the Discord token-derived fallback key.");
+}
 const deployedUploadGuildIds = [
   process.env.ROBLOX_UPLOAD_GUILD_IDS,
   "1412169906140741725"
@@ -218,9 +226,17 @@ function canUseDefaultRoblox(interaction) {
     && canUseRobloxUpload(interaction, robloxAccess);
 }
 
+function canUseGuildUpload(interaction, guildConfig) {
+  const roles = interaction.member?.roles;
+  const memberRoleIds = roles?.cache?.keys
+    ? [...roles.cache.keys()]
+    : Array.isArray(roles) ? roles : [];
+  return canUseConfiguredUploadRoles(guildConfig, memberRoleIds, ensureGuildAdmin(interaction));
+}
+
 function resolveUploadTarget(interaction) {
   const guildConfig = interaction.guildId ? guildConfigStore.getUploadConfig(interaction.guildId) : null;
-  if (guildConfig?.apiKey) {
+  if (guildConfig?.apiKey && canUseGuildUpload(interaction, guildConfig)) {
     return {
       uploader: createRobloxUploader({
         apiKey: guildConfig.apiKey,
@@ -230,6 +246,7 @@ function resolveUploadTarget(interaction) {
       label: `${guildConfig.creatorType} ${guildConfig.creatorId} (this server)`
     };
   }
+  if (guildConfig?.apiKey) return null;
   if (canUseDefaultRoblox(interaction)) {
     return {
       uploader: defaultRoblox,
@@ -258,7 +275,9 @@ function resolveUploadTarget(interaction) {
 
 async function replyUploadTargetRequired(interaction) {
   const guildConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
-  const content = guildConfig && !guildConfig.apiKeyConfigured
+  const content = guildConfig?.apiKeyConfigured && !canUseGuildUpload(interaction, guildConfig)
+    ? `❌ You need one of this server's upload roles: ${guildConfig.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}. Ask a server admin for access.`
+    : guildConfig && !guildConfig.apiKeyConfigured
     ? "❌ This server has a creator ID, but no ROBLOX_API_KEY yet. An admin can open `/menu` and press **Setup Roblox** to add it."
     : "❌ This server has not set up a Roblox API key yet. An admin should open `/menu`, paste ROBLOX_API_KEY, choose Group/User, and enter CREATOR_ID.";
   await interaction.reply({
@@ -818,10 +837,49 @@ async function showRobloxServer(interaction) {
       content: config
         ? [
             `✅ This server is set to Roblox ${config.creatorType} ${config.creatorId}.`,
-            `API key: ${config.apiKeyConfigured ? "configured" : "not configured"}`
+            `API key: ${config.apiKeyConfigured ? `configured (fingerprint ${config.apiKeyFingerprint})` : "not configured"}`,
+            config.uploadRoleIds.length
+              ? `Upload roles: ${config.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}`
+              : "Upload roles: everyone in this server"
           ].join("\n")
         : "⚠️ This server does not have a Roblox creator yet. Use `/roblox-server set` first.",
       flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  if (["role-add", "role-remove", "roles", "roles-clear"].includes(subcommand)) {
+    const existing = guildConfigStore.get(interaction.guildId);
+    if (!existing) {
+      await interaction.reply({
+        content: "❌ Set up Roblox first with `/menu`, then configure upload roles.",
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+    if (subcommand === "roles") {
+      await interaction.reply({
+        content: existing.uploadRoleIds.length
+          ? `✅ Roles allowed to upload: ${existing.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}`
+          : "✅ Every member in this server may upload. Admins always retain access.",
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
+      return;
+    }
+    const role = subcommand === "roles-clear" ? null : interaction.options.getRole("role", true);
+    const nextRoleIds = subcommand === "roles-clear"
+      ? []
+      : subcommand === "role-add"
+        ? [...existing.uploadRoleIds, role.id]
+        : existing.uploadRoleIds.filter((roleId) => roleId !== role.id);
+    const saved = await guildConfigStore.setUploadRoles(interaction.guildId, nextRoleIds, interaction.user.id);
+    await interaction.reply({
+      content: saved.uploadRoleIds.length
+        ? `✅ Upload access is limited to: ${saved.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}`
+        : "✅ Upload role restrictions are cleared. Every server member may upload.",
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
     });
     return;
   }
@@ -835,24 +893,29 @@ async function showRobloxServer(interaction) {
     return;
   }
 
-  const config = normalizeCreatorConfig({
-    creatorType: interaction.options.getString("creator_type", true),
-    creatorId: interaction.options.getString("creator_id", true),
-    updatedBy: interaction.user.id
-  });
-  const saved = await guildConfigStore.set(interaction.guildId, {
-    ...config,
-    updatedBy: interaction.user.id
-  });
-  await interaction.reply({
-    content: [
-      `✅ This server is now set to Roblox ${saved.creatorType} ${saved.creatorId}.`,
-      saved.apiKeyConfigured
-        ? "This server's API key is stored encrypted."
-        : "API key is not set yet. An admin can press **Setup Roblox** in `/menu` to add the API key."
-    ].join("\n"),
-    flags: MessageFlags.Ephemeral
-  });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const config = normalizeCreatorConfig({
+      creatorType: interaction.options.getString("creator_type", true),
+      creatorId: interaction.options.getString("creator_id", true),
+      updatedBy: interaction.user.id
+    });
+    const creator = await validateRobloxCreator(config);
+    const saved = await guildConfigStore.set(interaction.guildId, {
+      ...config,
+      updatedBy: interaction.user.id
+    });
+    await interaction.editReply({
+      content: [
+        `✅ This server is now set to Roblox ${saved.creatorType} ${saved.creatorId} (${safeDiscordText(creator.name)}).`,
+        saved.apiKeyConfigured
+          ? "This server's API key is stored encrypted."
+          : "API key is not set yet. An admin can press **Setup Roblox** in `/menu` to add the API key."
+      ].join("\n")
+    });
+  } catch (error) {
+    await interaction.editReply({ content: `❌ Setup failed: ${errorMessage(error)}` });
+  }
 }
 
 async function handleMenuButton(interaction) {
@@ -874,7 +937,9 @@ async function handleMenuButton(interaction) {
         "4. If the server is not set up, the bot opens a form for `ROBLOX_API_KEY`, `CREATOR_TYPE`, and `CREATOR_ID`.",
         "5. If you choose `Group`, `CREATOR_ID` is the Group ID and the API key must have access to that group.",
         "6. If you choose `User`, `CREATOR_ID` is the User ID that owns the API key.",
-        "7. Check setup: `/roblox-server status`. Change it again: press **Setup Roblox**.",
+        "7. The bot verifies that the selected Roblox creator exists before saving the encrypted key.",
+        "8. Optional: use `/roblox-server role-add` to limit uploads to selected Discord roles.",
+        "9. Check setup: `/roblox-server status`. Change it again: press **Setup Roblox**.",
         "",
         "**Regular users:**",
         "1. Press **Upload File** for 1-5 files, **Paste Link** for a public audio file link, or **YouTube** for one public video.",
@@ -940,28 +1005,35 @@ async function handleMenuModal(interaction) {
       return true;
     }
     try {
-      const saved = await guildConfigStore.set(interaction.guildId, {
-        apiKey: interaction.fields.getTextInputValue("roblox_api_key"),
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const apiKey = normalizeRobloxApiKey(interaction.fields.getTextInputValue("roblox_api_key"));
+      const creatorConfig = normalizeCreatorConfig({
         creatorType: interaction.fields.getStringSelectValues("creator_type")[0],
-        creatorId: interaction.fields.getTextInputValue("creator_id"),
+        creatorId: interaction.fields.getTextInputValue("creator_id")
+      });
+      const creator = await validateRobloxCreator(creatorConfig);
+      const saved = await guildConfigStore.set(interaction.guildId, {
+        apiKey,
+        ...creatorConfig,
         updatedBy: interaction.user.id
       });
-      await interaction.reply({
+      await interaction.editReply({
         content: [
-          `✅ This server is now set to Roblox ${saved.creatorType} ${saved.creatorId}.`,
+          `✅ Verified and saved: Roblox ${saved.creatorType} ${saved.creatorId} (${safeDiscordText(creator.name)}).`,
           saved.creatorType === "Group"
             ? "Uploads will go to that Roblox group/community ID."
             : "Uploads will go to that Roblox user creator ID.",
-          "This server's ROBLOX_API_KEY is stored encrypted.",
+          `This server's ROBLOX_API_KEY is encrypted (fingerprint ${saved.apiKeyFingerprint}).`,
           "Use `/roblox-server status` to double-check this ID."
         ].join("\n"),
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
     } catch (error) {
-      await interaction.reply({
+      const reply = interaction.deferred ? interaction.editReply.bind(interaction) : interaction.reply.bind(interaction);
+      await reply({
         content: `❌ Setup failed: ${errorMessage(error)}`,
-        flags: MessageFlags.Ephemeral
+        ...(interaction.deferred ? {} : { flags: MessageFlags.Ephemeral })
       });
     }
     return true;
@@ -1080,10 +1152,14 @@ async function handleInteraction(interaction) {
     const destinationLine = serverConfig
       ? `Destination: Roblox ${serverConfig.creatorType} ${serverConfig.creatorId}.`
       : "Destination: bot default.";
+    const accessLine = serverConfig?.uploadRoleIds.length
+      ? `Upload access: ${serverConfig.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}.`
+      : "Upload access: everyone in this server.";
     await interaction.reply({
       content: [
         "🎵 **Menu Audio Roblox**",
         destinationLine,
+        accessLine,
         "Choose an upload method below. The bot will convert, edit, apply speed, and upload to Roblox after you confirm audio rights."
       ].join("\n"),
       components: mainMenuComponents(),

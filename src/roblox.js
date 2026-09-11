@@ -1,4 +1,8 @@
 const ASSETS_API = "https://apis.roblox.com/assets/v1";
+const CREATOR_LOOKUP = Object.freeze({
+  User: "https://users.roblox.com/v1/users/",
+  Group: "https://groups.roblox.com/v1/groups/"
+});
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,6 +60,30 @@ function requestFailure(message, retryable = false) {
   const error = new Error(message);
   error.retryable = retryable;
   return error;
+}
+
+export async function validateRobloxCreator({ creatorType, creatorId, fetchImpl = fetch }) {
+  if (!CREATOR_LOOKUP[creatorType] || !/^\d+$/.test(String(creatorId || ""))) {
+    throw new Error("Choose Group or User and enter its numeric Creator ID.");
+  }
+  let response;
+  try {
+    response = await fetchImpl(`${CREATOR_LOOKUP[creatorType]}${creatorId}`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(15_000)
+    });
+  } catch {
+    throw requestFailure("Roblox creator verification is temporarily unavailable. Try again.", true);
+  }
+  if (response.status === 404) {
+    throw new Error(`Roblox ${creatorType} ${creatorId} does not exist.`);
+  }
+  if (!response.ok) {
+    throw requestFailure(`Roblox creator verification failed (HTTP ${response.status}). Try again.`, response.status === 429 || response.status >= 500);
+  }
+  const creator = await response.json();
+  const name = cleanText(creator.name || creator.displayName || `Roblox ${creatorType}`, 100, "Creator name");
+  return { creatorType, creatorId: String(creatorId), name };
 }
 
 export function createRobloxUploader(config = {}) {

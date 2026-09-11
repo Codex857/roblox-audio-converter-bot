@@ -127,6 +127,24 @@ export const robloxServerCommand = new SlashCommandBuilder()
     subcommand.setName("status").setDescription("View this server's Roblox creator destination")
   )
   .addSubcommand((subcommand) =>
+    subcommand
+      .setName("role-add")
+      .setDescription("Allow a Discord role to upload audio")
+      .addRoleOption((option) => option.setName("role").setDescription("Role allowed to upload").setRequired(true))
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("role-remove")
+      .setDescription("Remove a role from the upload allowlist")
+      .addRoleOption((option) => option.setName("role").setDescription("Role to remove").setRequired(true))
+  )
+  .addSubcommand((subcommand) =>
+    subcommand.setName("roles").setDescription("View roles allowed to upload audio")
+  )
+  .addSubcommand((subcommand) =>
+    subcommand.setName("roles-clear").setDescription("Allow every server member to upload")
+  )
+  .addSubcommand((subcommand) =>
     subcommand.setName("clear").setDescription("Clear this server's Roblox creator setup")
   );
 
