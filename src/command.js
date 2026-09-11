@@ -126,6 +126,24 @@ export const historyCommand = new SlashCommandBuilder()
   .setName("history")
   .setDescription("Show the latest Roblox audio uploads for this server");
 
+export const generateMusicCommand = new SlashCommandBuilder()
+  .setName("generate-music")
+  .setDescription("Generate an original AI game soundtrack")
+  .addStringOption((option) => option.setName("prompt").setDescription("Describe the original music you want").setRequired(true).setMinLength(10).setMaxLength(1800))
+  .addBooleanOption((option) => option.setName("rights_confirm").setDescription("I will not request imitation of an artist or copyrighted song").setRequired(true))
+  .addStringOption((option) => option.setName("genre").setDescription("Music genre or game mood").setMaxLength(80))
+  .addStringOption((option) => option.setName("mode").setDescription("Instrumental or vocal").addChoices(
+    { name: "Instrumental", value: "instrumental" },
+    { name: "Vocal", value: "vocal" }
+  ))
+  .addIntegerOption((option) => option.setName("duration").setDescription("Target duration").addChoices(
+    { name: "30 seconds", value: 30 },
+    { name: "60 seconds", value: 60 },
+    { name: "120 seconds", value: 120 }
+  ))
+  .addIntegerOption((option) => option.setName("bpm").setDescription("Optional tempo (50-220 BPM)").setMinValue(50).setMaxValue(220))
+  .addBooleanOption((option) => option.setName("upload_to_roblox").setDescription("Convert and upload the result to this server's Roblox creator"));
+
 export const robloxAccountCommand = new SlashCommandBuilder()
   .setName("roblox-account")
   .setDescription("Set up or update this server's Roblox upload credentials");
@@ -196,6 +214,7 @@ export const robloxServerCommand = new SlashCommandBuilder()
 
 export const allCommands = [
   menuCommand,
+  generateMusicCommand,
   historyCommand,
   robloxAccountCommand,
   robloxServerCommand,

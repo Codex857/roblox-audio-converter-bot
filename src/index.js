@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import {
@@ -38,6 +38,7 @@ import { CooldownGate, progressBar } from "./queue-policy.js";
 import { UploadHistoryStore } from "./upload-history-store.js";
 import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
 import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js";
+import { createMusicGenerator } from "./music-generation.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
   assetDisplayName,
@@ -72,6 +73,10 @@ const robloxOAuth = await createRobloxOAuth({
   clientSecret: process.env.ROBLOX_OAUTH_CLIENT_SECRET,
   redirectUri: robloxOAuthRedirectUri,
   dataDirectory
+});
+const musicGenerator = createMusicGenerator({
+  apiKey: process.env.GEMINI_API_KEY,
+  model: process.env.MUSIC_GENERATION_MODEL?.trim() || "lyria-3.5"
 });
 const guildConfigStore = await new GuildConfigStore({
   directory: join(dataDirectory, "guild-creator-configs"),
@@ -181,7 +186,7 @@ void refreshYouTubeDownloader("startup")
   });
 
 function jobFileCount(job) {
-  return job.attachments?.length || (job.youtube || job.directAudio ? 1 : 0);
+  return job.attachments?.length || (job.youtube || job.directAudio || job.musicGeneration ? 1 : 0);
 }
 
 function pendingFileCount() {
@@ -623,8 +628,56 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
   }
 }
 
+async function processMusicGenerationJob({ interaction, musicGeneration, uploader }) {
+  let workDir;
+  try {
+    await editStatus(interaction, `🎼 Generating original ${musicGeneration.duration}-second ${safeDiscordText(musicGeneration.genre)} music with AI...`);
+    const generated = await musicGenerator.generate(musicGeneration);
+    workDir = await mkdtemp(join(tmpdir(), "eclipse-music-"));
+    const baseName = safeBaseName(generated.prompt).slice(0, 60) || "eclipse-ai-music";
+    const inputPath = join(workDir, `${baseName}.mp3`);
+    const outputPath = join(workDir, `${baseName}.ogg`);
+    await writeFile(inputPath, generated.audio);
+
+    await editStatus(interaction, "🎛️ Optimizing the generated music for Discord and Roblox...");
+    await inspectAudio(ffprobeStatic.path, inputPath);
+    await convertAudio(ffmpegPath, inputPath, outputPath, { quality: "high", normalize: true, preset: "balanced" });
+    await inspectConvertedAudio(ffprobeStatic.path, outputPath);
+    const outputStat = await stat(outputPath);
+    if (outputStat.size > DISCORD_SAFE_MAX_BYTES) {
+      await convertAudio(ffmpegPath, inputPath, outputPath, { quality: "compact", normalize: true, preset: "balanced" });
+    }
+
+    if (musicGeneration.uploadToRoblox) {
+      await editStatus(interaction, "☁️ Uploading the generated soundtrack to Roblox...");
+      const displayName = assetDisplayName(generated.prompt);
+      const operationPath = await uploader.upload({
+        filePath: outputPath,
+        fileName: `${baseName}.ogg`,
+        displayName,
+        description: DEFAULT_ASSET_DESCRIPTION
+      });
+      await editStatus(interaction, "⏳ Roblox is processing the generated soundtrack...");
+      const uploaded = await uploader.waitForAssetResult(operationPath);
+      await replyWithUploadResults(interaction, [{ index: 1, name: displayName, ...uploaded }], "ai-generated");
+      return;
+    }
+
+    const lyrics = generated.lyrics ? `\n\n**Generated lyrics/details**\n${safeDiscordText(generated.lyrics).slice(0, 1200)}` : "";
+    await interaction.editReply({
+      content: `✅ **AI music generated**\n${safeDiscordText(generated.genre)} · ${generated.duration}s${generated.bpm ? ` · ${generated.bpm} BPM` : ""}\nUse \`/upload\` if you want to send this preview to Roblox.${lyrics}`.slice(0, 1950),
+      files: [{ attachment: outputPath, name: `${baseName}.ogg` }],
+      components: [],
+      allowedMentions: { parse: [] }
+    });
+  } finally {
+    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function processAudioJob(job) {
-  if (job.youtube) await processYouTubeUploadJob(job);
+  if (job.musicGeneration) await processMusicGenerationJob(job);
+  else if (job.youtube) await processYouTubeUploadJob(job);
   else if (job.directAudio) await processDirectAudioUploadJob(job);
   else if (job.upload) await processUploadJob(job);
   else await processConversionJob(job);
@@ -1232,7 +1285,35 @@ async function handleInteraction(interaction) {
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["menu", "upload", "yt", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+  if (!["menu", "upload", "yt", "generate-music", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "generate-music") {
+    if (!interaction.options.getBoolean("rights_confirm", true)) {
+      await interaction.reply({ content: "❌ Generation cancelled. Do not request imitation of an artist or copyrighted song.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (!musicGenerator.configured) {
+      await interaction.reply({ content: "🧪 AI Music is installed but not active yet. The bot owner must add `GEMINI_API_KEY` in Railway, then redeploy.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const uploadToRoblox = interaction.options.getBoolean("upload_to_roblox") || false;
+    const target = uploadToRoblox ? resolveUploadTarget(interaction) : null;
+    if (uploadToRoblox && !target) return replyUploadTargetRequired(interaction);
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await enqueueJob({
+      interaction,
+      uploader: target?.uploader,
+      musicGeneration: {
+        prompt: interaction.options.getString("prompt", true),
+        genre: interaction.options.getString("genre") || "game soundtrack",
+        mode: interaction.options.getString("mode") || "instrumental",
+        duration: interaction.options.getInteger("duration") || 30,
+        bpm: interaction.options.getInteger("bpm"),
+        uploadToRoblox
+      }
+    });
+    return;
+  }
 
   if (interaction.commandName === "history") {
     if (!interaction.inGuild()) {
@@ -1331,6 +1412,7 @@ async function handleInteraction(interaction) {
         "Fill the short form, tick the audio rights confirmation, then submit.",
         "",
         "The menu supports 1-5 files, one public audio file link, or one public YouTube video link.",
+        "Use `/generate-music` to create an original AI game soundtrack, preview it, or upload it directly to Roblox.",
         "Choose speed `0.75x`, `1x`, `1.25x`, `1.5x`, or `2x`, an audio style, and optionally trim with `start-end` seconds (example: `30-90`).",
         "Then wait for the Asset ID, moderation status, JSON, and Lua.",
         "Use `/history` to view the latest uploads for this server.",
@@ -1431,7 +1513,9 @@ const httpServer = startServer({
     uploadHistoryStorage: "ready",
     corruptUploadHistoryFiles: uploadHistoryStore.corruptFiles,
     youtubeReady,
-    youtubeToolVersion
+    youtubeToolVersion,
+    aiMusicConfigured: musicGenerator.configured,
+    aiMusicModel: musicGenerator.model
   })
 });
 

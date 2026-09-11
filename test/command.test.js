@@ -38,6 +38,15 @@ test("history command is available without options", () => {
   assert.deepEqual(history.options || [], []);
 });
 
+test("AI music command exposes safe generation controls", () => {
+  const command = allCommands.map((item) => item.toJSON()).find((item) => item.name === "generate-music");
+  assert.ok(command);
+  assert.deepEqual(command.options.map((option) => option.name), [
+    "prompt", "rights_confirm", "genre", "mode", "duration", "bpm", "upload_to_roblox"
+  ]);
+  assert.deepEqual(command.options.find((option) => option.name === "duration").choices.map((choice) => choice.value), [30, 60, 120]);
+});
+
 test("quick upload only asks for one required file", () => {
   const quick = allCommands.map((item) => item.toJSON()).find((command) => command.name === "upload");
   assert.ok(quick);

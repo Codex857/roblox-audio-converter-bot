@@ -67,6 +67,7 @@ For Roblox setup:
 
 - `/menu` - easiest option. Opens the upload menu.
 - `/history` - shows the latest 10 upload results and Asset IDs for this server.
+- `/generate-music` - generates an original AI game soundtrack and optionally uploads it to Roblox.
 - `/roblox-help` - shows a private English help guide.
 - `/roblox-server status` - shows this Discord server's Roblox creator setup.
 - `/roblox-server set` - manually sets creator type and creator ID only.
@@ -86,6 +87,14 @@ The easiest path for normal users is `/menu` > **Start Upload**, **Paste Link**,
 Admins always retain upload access. If no upload roles are configured, every server member may upload.
 
 ## Upload options
+
+## AI music generation (Discord MVP)
+
+Set `GEMINI_API_KEY` in Railway to enable Google Lyria. The optional `MUSIC_GENERATION_MODEL` defaults to `lyria-3.5`.
+
+Use `/generate-music`, describe an original soundtrack, choose instrumental/vocal, duration and optional BPM, then choose whether to upload directly to Roblox. Without direct upload, the bot returns a Roblox-ready OGG preview. API errors, timeouts and rate limits are handled without exposing the key.
+
+Do not request an exact imitation of a named artist or copyrighted song.
 
 All upload flows require the user to confirm that they own the audio or have a license to use it.
 
