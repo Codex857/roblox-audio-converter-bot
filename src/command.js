@@ -120,7 +120,7 @@ export const youtubeUploadCommand = new SlashCommandBuilder()
 
 export const menuCommand = new SlashCommandBuilder()
   .setName("menu")
-  .setDescription("Open the easiest menu for audio, direct links, or YouTube");
+  .setDescription("Open the guided Eclipse Audio upload and creator toolkit");
 
 export const historyCommand = new SlashCommandBuilder()
   .setName("history")

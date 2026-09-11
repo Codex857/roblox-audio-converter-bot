@@ -9,6 +9,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   Client,
+  EmbedBuilder,
   Events,
   GatewayIntentBits,
   MessageFlags,
@@ -228,6 +229,41 @@ function presetText(preset = "preserve") {
 
 function editStatus(interaction, content) {
   return interaction.editReply({ content, allowedMentions: { parse: [] } });
+}
+
+function buildMenuEmbed(serverConfig = null) {
+  const destination = serverConfig?.apiKeyConfigured
+    ? `Roblox ${serverConfig.creatorType} ${serverConfig.creatorId}`
+    : "Not configured — an admin should press Setup Roblox";
+  const access = serverConfig?.uploadRoleIds?.length
+    ? serverConfig.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")
+    : "Everyone in this server (admins always allowed)";
+  return new EmbedBuilder()
+    .setColor(0x67e8f9)
+    .setTitle("🎛️ Eclipse Audio Studio")
+    .setDescription("**Upload in 3 steps:** choose a source → select speed/style → confirm rights. The bot converts, uploads and returns the Roblox Asset ID.")
+    .addFields(
+      { name: "📤 Upload", value: "**Start Upload** — MP3/WAV/OGG and more\n**Paste Audio Link** — Dropbox, Drive, CDN, R2 or S3\n**YouTube Link** — public licensed videos", inline: true },
+      { name: "🧠 Smart tools", value: "**Smart Audio Check** — free health score + waveform\n**AI Music** — optional paid provider\n`/lua-sound` — Studio scripts", inline: true },
+      { name: "🎯 Destination", value: `${destination}\nAccess: ${access}` }
+    )
+    .setFooter({ text: "Audio must be owned/licensed. Roblox moderation always applies." });
+}
+
+function buildHelpEmbed() {
+  return new EmbedBuilder()
+    .setColor(0xa78bfa)
+    .setTitle("❓ Eclipse Audio — Complete Help")
+    .setDescription("Use `/menu` for the guided workflow. You do not need to memorize upload commands.")
+    .addFields(
+      { name: "1 · Server setup (admin)", value: "Create a Roblox Open Cloud key with Assets `asset:read` + `asset:write`. Open `/menu` and enter the API key, Group/User type and Creator ID. Group keys must be granted access to that group." },
+      { name: "2 · Upload audio", value: "Choose **Start Upload**, **Paste Audio Link**, or **YouTube Link**. Select speed, audio style and optional trim such as `30-90`, confirm rights, then submit." },
+      { name: "3 · Free smart features", value: "**Smart Audio Check** measures clipping, volume, duration, size and format, then creates a waveform. `/lua-sound` builds safe Single, Playlist, Random or Crossfade Luau files." },
+      { name: "4 · Optional AI Music", value: "AI Music is separate and disabled unless the bot owner configures a paid provider. Check availability and daily allowance with `/ai-status`. Normal conversion does not require AI." },
+      { name: "5 · Result and moderation", value: "Successful uploads return Asset ID, moderation state, JSON and Lua. Use `/history` for recent results. Roblox can keep an asset pending or reject it; the bot cannot bypass moderation." },
+      { name: "Admin controls", value: "`/panel` posts a permanent menu. `/roblox-server role-add` controls upload roles. `/roblox-server audit-channel` enables logs. `/roblox-server status` checks configuration." }
+    )
+    .setFooter({ text: "YouTube cloud blocking: use file upload or a supported direct link fallback." });
 }
 
 function makeRobloxConnectButton(discordUserId) {
@@ -1208,27 +1244,24 @@ async function handleMenuButton(interaction) {
 
   if (interaction.customId === "music-menu:help") {
     await interaction.reply({
+      embeds: [buildHelpEmbed()],
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return true;
+  }
+
+  if (interaction.customId === "music-menu:tools") {
+    await interaction.reply({
       content: [
-        "🎵 **How to use the Roblox audio menu**",
-        "**Developer/admin server:**",
-        "1. Create a Roblox Open Cloud API key in Creator Dashboard > Credentials.",
-        "2. Required permissions: Assets `asset:read` and `asset:write`.",
-        "3. After inviting the bot, an admin opens `/menu`.",
-        "4. If the server is not set up, the bot opens a form for `ROBLOX_API_KEY`, `CREATOR_TYPE`, and `CREATOR_ID`.",
-        "5. If you choose `Group`, `CREATOR_ID` is the Group ID and the API key must have access to that group.",
-        "6. If you choose `User`, `CREATOR_ID` is the User ID that owns the API key.",
-        "7. The bot verifies that the selected Roblox creator exists before saving the encrypted key.",
-        "8. Optional: use `/roblox-server role-add` to limit uploads to selected Discord roles.",
-        "9. Check setup: `/roblox-server status`. Change it again: press **Setup Roblox**.",
+        "🧩 **Free Developer Tools**",
+        "`/audio-check` — health score, format inspection and waveform",
+        "`/lua-sound` — Single, Playlist, Random and Crossfade Roblox Studio scripts",
+        "`/history` — recent Asset IDs and moderation results",
+        "`/roblox-audio` — convert to Roblox-ready OGG without uploading",
+        "`/ai-status` — optional AI provider status and allowance",
         "",
-        "**Regular users:**",
-        "1. Press **AI Music** to generate an original soundtrack, **Start Upload** for 1-5 files, **Paste Link**, or **YouTube**.",
-        "2. AI Music returns a preview with buttons to upload, regenerate, or discard.",
-        "3. For existing audio, optionally choose speed, audio style, and a trim range such as `30-90` seconds.",
-        "4. Confirm the rights/originality statement, submit, and wait for the result.",
-        "",
-        "Audio links support Dropbox, Google Drive, Discord CDN, Cloudflare R2, and Amazon S3. YouTube links must use the YouTube option.",
-        "All uploads still go through Roblox moderation. Playlists, live streams, private videos, and DRM are not supported."
+        "Tip: an admin can use `/panel` to keep this control panel in a channel."
       ].join("\n"),
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
@@ -1507,12 +1540,7 @@ async function handleInteraction(interaction) {
       return;
     }
     await interaction.reply({
-      content: [
-        "🎛️ **Eclipse Audio Control Panel**",
-        "Convert, check, edit and upload licensed audio to Roblox.",
-        "Choose an action below. Use `/lua-sound` to generate ready-to-use Roblox Studio scripts.",
-        "Only server admins can change the Roblox destination."
-      ].join("\n"),
+      embeds: [buildMenuEmbed(interaction.guildId ? guildConfigStore.get(interaction.guildId) : null)],
       components: mainMenuComponents(),
       allowedMentions: { parse: [] }
     });
@@ -1620,19 +1648,8 @@ async function handleInteraction(interaction) {
       });
       return;
     }
-    const destinationLine = serverConfig
-      ? `Destination: Roblox ${serverConfig.creatorType} ${serverConfig.creatorId}.`
-      : "Destination: bot default.";
-    const accessLine = serverConfig?.uploadRoleIds.length
-      ? `Upload access: ${serverConfig.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}.`
-      : "Upload access: everyone in this server.";
     await interaction.reply({
-      content: [
-        "🎵 **Menu Audio Roblox**",
-        destinationLine,
-        accessLine,
-        "Choose an upload method below. The bot will convert, edit, apply speed, and upload to Roblox after you confirm audio rights."
-      ].join("\n"),
+      embeds: [buildMenuEmbed(serverConfig)],
       components: mainMenuComponents(),
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
@@ -1662,34 +1679,7 @@ async function handleInteraction(interaction) {
 
   if (interaction.commandName === "roblox-help") {
     await interaction.reply({
-      content: [
-        "🎵 **How to use the Roblox audio bot**",
-        "**For server developers/admins:**",
-        "1. Create an API key in Roblox Creator Dashboard > Credentials.",
-        "2. API key permissions: Assets `asset:read` and `asset:write`.",
-        "3. After inviting the bot, an admin opens `/menu`.",
-        "4. If not set up yet, the bot opens a form for `ROBLOX_API_KEY`, `CREATOR_TYPE`, and `CREATOR_ID`.",
-        "5. Choose `Group` + Group ID to upload to a group/community.",
-        "6. Choose `User` + User ID to upload to a user creator.",
-        "7. For groups, the API key must be given access to that Group ID in Roblox.",
-        "8. Use `/roblox-server role-add` for upload roles and `/roblox-server audit-channel` for logs.",
-        "9. Use `/roblox-server status` to confirm. Use `/roblox-server clear` if the setup is wrong.",
-        "",
-        "**For regular users:**",
-        "**Easiest way:** type `/menu`, then press **Start Upload**, **Paste Link**, or **YouTube**.",
-        "Fill the short form, tick the audio rights confirmation, then submit.",
-        "",
-        "The menu supports 1-5 files, one public audio file link, or one public YouTube video link.",
-        "Use **Check Audio** or `/audio-check` for a health score and waveform without uploading anything.",
-        "Use `/lua-sound` to generate a Roblox Studio sound, playlist, random playlist, or crossfade script.",
-        "Use `/generate-music` to create an original AI game soundtrack, preview it, or upload it directly to Roblox.",
-        "Choose speed `0.75x`, `1x`, `1.25x`, `1.5x`, or `2x`, an audio style, and optionally trim with `start-end` seconds (example: `30-90`).",
-        "Then wait for the Asset ID, moderation status, JSON, and Lua.",
-        "Use `/history` to view the latest uploads for this server.",
-        "",
-        "Older commands `/upload`, `/yt`, and `/roblox-upload` still work.",
-        "Use audio you own or are licensed to use. Every upload still goes through Roblox moderation."
-      ].join("\n"),
+      embeds: [buildHelpEmbed()],
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
     });

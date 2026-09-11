@@ -90,6 +90,8 @@ For Roblox setup:
 The easiest path for normal users is `/menu` > **Start Upload**, **Paste Link**, or **YouTube**.
 Admins always retain upload access. If no upload roles are configured, every server member may upload.
 
+The v4.1 menu is organized into Upload, Smart Tools, and Setup/Help rows. It shows the current Roblox destination and role access in an embed. **Developer Tools** explains the free commands, while both **Help Guide** and `/roblox-help` provide the complete admin and user workflow.
+
 ## Upload options
 
 ## Free audio tools

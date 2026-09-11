@@ -15,18 +15,22 @@ test("main menu offers file, direct link, YouTube, help and account buttons", ()
   const rows = mainMenuComponents().map((row) => row.toJSON());
   assert.deepEqual(rows.map((row) => row.components.map((component) => component.custom_id)), [
     [
-    "music-menu:file",
+      "music-menu:file",
       "music-menu:audio-link",
-      "music-menu:youtube",
+      "music-menu:youtube"
+    ],
+    [
+      "music-menu:check",
       "music-menu:ai"
     ],
     [
       "music-menu:account",
       "music-menu:help",
-      "music-menu:check"
+      "music-menu:tools"
     ]
   ]);
   assert.equal(rows[0].components[0].label, "Start Upload");
+  assert.equal(rows[1].components[0].label, "Smart Audio Check");
 });
 
 test("audio check modal accepts exactly one file", () => {

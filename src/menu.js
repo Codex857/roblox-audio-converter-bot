@@ -27,12 +27,19 @@ export function mainMenuComponents() {
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId("music-menu:youtube")
-        .setLabel("YouTube")
+        .setLabel("YouTube Link")
         .setEmoji("🔗")
-        .setStyle(ButtonStyle.Danger),
+        .setStyle(ButtonStyle.Danger)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("music-menu:check")
+        .setLabel("Smart Audio Check")
+        .setEmoji("🔬")
+        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId("music-menu:ai")
-        .setLabel("AI Music")
+        .setLabel("AI Music (Optional)")
         .setEmoji("✨")
         .setStyle(ButtonStyle.Primary)
     ),
@@ -44,13 +51,13 @@ export function mainMenuComponents() {
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("music-menu:help")
-        .setLabel("How to Use")
+        .setLabel("Help Guide")
         .setEmoji("❓")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId("music-menu:check")
-        .setLabel("Check Audio")
-        .setEmoji("🔬")
+        .setCustomId("music-menu:tools")
+        .setLabel("Developer Tools")
+        .setEmoji("🧩")
         .setStyle(ButtonStyle.Secondary)
     )
   ];
