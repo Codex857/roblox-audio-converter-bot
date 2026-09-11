@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
@@ -52,7 +53,7 @@ import {
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "3.1.0";
+const BOT_VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
