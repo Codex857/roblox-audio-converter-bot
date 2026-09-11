@@ -29,7 +29,12 @@ export function mainMenuComponents() {
         .setCustomId("music-menu:youtube")
         .setLabel("YouTube")
         .setEmoji("🔗")
-        .setStyle(ButtonStyle.Danger)
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("music-menu:ai")
+        .setLabel("AI Music")
+        .setEmoji("✨")
+        .setStyle(ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -44,6 +49,53 @@ export function mainMenuComponents() {
         .setStyle(ButtonStyle.Secondary)
     )
   ];
+}
+
+export function aiMusicModal() {
+  return new ModalBuilder()
+    .setCustomId("music-menu:ai-modal")
+    .setTitle("Generate Original AI Music")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Describe your soundtrack")
+        .setDescription("Mood, instruments, energy, and game scene")
+        .setTextInputComponent(new TextInputBuilder()
+          .setCustomId("ai_prompt")
+          .setStyle(TextInputStyle.Paragraph)
+          .setPlaceholder("Dark futuristic racing music with heavy bass...")
+          .setMinLength(10)
+          .setMaxLength(1800)
+          .setRequired(true)),
+      new LabelBuilder()
+        .setLabel("Genre or game mood")
+        .setTextInputComponent(new TextInputBuilder()
+          .setCustomId("ai_genre")
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder("Synthwave, horror, obby, combat...")
+          .setMaxLength(80)
+          .setRequired(false)),
+      new LabelBuilder()
+        .setLabel("Music type")
+        .setStringSelectMenuComponent(new StringSelectMenuBuilder()
+          .setCustomId("ai_mode")
+          .addOptions(
+            new StringSelectMenuOptionBuilder().setLabel("Instrumental").setValue("instrumental").setDefault(true),
+            new StringSelectMenuOptionBuilder().setLabel("Vocal + original lyrics").setValue("vocal")
+          )),
+      new LabelBuilder()
+        .setLabel("Duration")
+        .setStringSelectMenuComponent(new StringSelectMenuBuilder()
+          .setCustomId("ai_duration")
+          .addOptions(
+            new StringSelectMenuOptionBuilder().setLabel("30 seconds - Fast preview").setValue("30").setDefault(true),
+            new StringSelectMenuOptionBuilder().setLabel("60 seconds").setValue("60"),
+            new StringSelectMenuOptionBuilder().setLabel("120 seconds").setValue("120")
+          )),
+      new LabelBuilder()
+        .setLabel("Original music confirmation")
+        .setDescription("I will not request imitation of an artist or copyrighted song")
+        .setCheckboxComponent(new CheckboxBuilder().setCustomId("ai_rights_confirm").setDefault(false))
+    );
 }
 
 export function youtubeFallbackComponents() {

@@ -94,6 +94,8 @@ Set `GEMINI_API_KEY` in Railway to enable Google Lyria. The optional `MUSIC_GENE
 
 Use `/generate-music`, describe an original soundtrack, choose instrumental/vocal, duration and optional BPM, then choose whether to upload directly to Roblox. Without direct upload, the bot returns a Roblox-ready OGG preview. API errors, timeouts and rate limits are handled without exposing the key.
 
+The easiest flow is `/menu` > **AI Music**. After generation, preview buttons let the same user upload directly to Roblox, generate a fresh variation, or discard the temporary result. Preview data expires after 15 minutes and is removed on restart.
+
 Do not request an exact imitation of a named artist or copyrighted song.
 
 All upload flows require the user to confirm that they own the audio or have a license to use it.

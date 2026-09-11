@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import {
@@ -25,6 +25,7 @@ import {
   normalizeRobloxApiKey
 } from "./guild-config-store.js";
 import {
+  aiMusicModal,
   directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
@@ -101,6 +102,7 @@ const robloxAccess = {
 };
 const jobQueue = [];
 const quickUploadConfirmations = new Map();
+const generatedMusicPreviews = new Map();
 const defaultUploaderUsers = new Set(String(process.env.ROBLOX_DEFAULT_USER_IDS || process.env.ROBLOX_UPLOAD_USER_IDS || "")
   .split(",")
   .map((id) => id.trim())
@@ -109,6 +111,7 @@ const MAX_PENDING_FILES = 10;
 const MAX_PENDING_FILES_PER_USER = 5;
 const USER_COOLDOWN_MS = Math.max(0, Number(process.env.USER_COOLDOWN_SECONDS || 10) * 1000);
 const QUICK_CONFIRM_MS = 60_000;
+const GENERATED_PREVIEW_MS = 15 * 60_000;
 const DEFAULT_ASSET_DESCRIPTION = "by codex eclipse";
 let activeFileCount = 0;
 let activeUserId = null;
@@ -186,7 +189,7 @@ void refreshYouTubeDownloader("startup")
   });
 
 function jobFileCount(job) {
-  return job.attachments?.length || (job.youtube || job.directAudio || job.musicGeneration ? 1 : 0);
+  return job.attachments?.length || (job.youtube || job.directAudio || job.musicGeneration || job.generatedUpload ? 1 : 0);
 }
 
 function pendingFileCount() {
@@ -318,6 +321,14 @@ function quickUploadComponents(requestId) {
       .setCustomId(`quick-upload:${requestId}:cancel`)
       .setLabel("Cancel")
       .setStyle(ButtonStyle.Secondary)
+  )];
+}
+
+function generatedMusicComponents(previewId) {
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`ai-preview:${previewId}:upload`).setLabel("Upload to Roblox").setEmoji("☁️").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`ai-preview:${previewId}:regenerate`).setLabel("Generate Again").setEmoji("🔁").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`ai-preview:${previewId}:discard`).setLabel("Discard").setStyle(ButtonStyle.Secondary)
   )];
 }
 
@@ -663,11 +674,24 @@ async function processMusicGenerationJob({ interaction, musicGeneration, uploade
       return;
     }
 
-    const lyrics = generated.lyrics ? `\n\n**Generated lyrics/details**\n${safeDiscordText(generated.lyrics).slice(0, 1200)}` : "";
+    const previewId = randomUUID().replaceAll("-", "");
+    const previewAudio = await readFile(outputPath);
+    while (generatedMusicPreviews.size >= 20) generatedMusicPreviews.delete(generatedMusicPreviews.keys().next().value);
+    generatedMusicPreviews.set(previewId, {
+      ownerId: interaction.user.id,
+      guildId: interaction.guildId,
+      audio: previewAudio,
+      baseName,
+      prompt: generated.prompt,
+      request: musicGeneration
+    });
+    const timer = setTimeout(() => generatedMusicPreviews.delete(previewId), GENERATED_PREVIEW_MS);
+    timer.unref?.();
+    const lyrics = generated.lyrics ? `\n\n**Generated lyrics/details**\n${safeDiscordText(generated.lyrics).slice(0, 1000)}` : "";
     await interaction.editReply({
-      content: `✅ **AI music generated**\n${safeDiscordText(generated.genre)} · ${generated.duration}s${generated.bpm ? ` · ${generated.bpm} BPM` : ""}\nUse \`/upload\` if you want to send this preview to Roblox.${lyrics}`.slice(0, 1950),
+      content: `✅ **AI music generated**\n${safeDiscordText(generated.genre)} · ${generated.duration}s${generated.bpm ? ` · ${generated.bpm} BPM` : ""}\nPreview expires in 15 minutes. Choose Upload, Generate Again, or Discard.${lyrics}`.slice(0, 1950),
       files: [{ attachment: outputPath, name: `${baseName}.ogg` }],
-      components: [],
+      components: generatedMusicComponents(previewId),
       allowedMentions: { parse: [] }
     });
   } finally {
@@ -675,8 +699,32 @@ async function processMusicGenerationJob({ interaction, musicGeneration, uploade
   }
 }
 
+async function processGeneratedMusicUploadJob({ interaction, generatedUpload, uploader }) {
+  let workDir;
+  try {
+    workDir = await mkdtemp(join(tmpdir(), "eclipse-ai-upload-"));
+    const outputPath = join(workDir, `${generatedUpload.baseName}.ogg`);
+    await writeFile(outputPath, generatedUpload.audio);
+    await inspectConvertedAudio(ffprobeStatic.path, outputPath);
+    const displayName = assetDisplayName(generatedUpload.prompt);
+    await editStatus(interaction, "☁️ Uploading your AI soundtrack to Roblox...");
+    const operationPath = await uploader.upload({
+      filePath: outputPath,
+      fileName: `${generatedUpload.baseName}.ogg`,
+      displayName,
+      description: DEFAULT_ASSET_DESCRIPTION
+    });
+    await editStatus(interaction, "⏳ Roblox is processing the AI soundtrack...");
+    const uploaded = await uploader.waitForAssetResult(operationPath);
+    await replyWithUploadResults(interaction, [{ index: 1, name: displayName, ...uploaded }], "ai-generated");
+  } finally {
+    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function processAudioJob(job) {
-  if (job.musicGeneration) await processMusicGenerationJob(job);
+  if (job.generatedUpload) await processGeneratedMusicUploadJob(job);
+  else if (job.musicGeneration) await processMusicGenerationJob(job);
   else if (job.youtube) await processYouTubeUploadJob(job);
   else if (job.directAudio) await processDirectAudioUploadJob(job);
   else if (job.upload) await processUploadJob(job);
@@ -886,6 +934,44 @@ async function handleQuickUploadButton(interaction) {
   return true;
 }
 
+async function handleGeneratedMusicButton(interaction) {
+  const match = /^ai-preview:([a-f0-9]{32}):(upload|regenerate|discard)$/.exec(interaction.customId);
+  if (!match) return false;
+  const [, previewId, action] = match;
+  const preview = generatedMusicPreviews.get(previewId);
+  if (!preview) {
+    await interaction.reply({ content: "⌛ This AI music preview expired. Generate a new one from `/menu` or `/generate-music`.", flags: MessageFlags.Ephemeral });
+    return true;
+  }
+  if (preview.ownerId !== interaction.user.id || preview.guildId !== interaction.guildId) {
+    await interaction.reply({ content: "❌ Only the person who generated this preview can use these buttons.", flags: MessageFlags.Ephemeral });
+    return true;
+  }
+
+  if (action === "discard") {
+    generatedMusicPreviews.delete(previewId);
+    await interaction.update({ content: "🗑️ AI music preview discarded.", files: [], attachments: [], components: [] });
+    return true;
+  }
+
+  if (action === "regenerate") {
+    generatedMusicPreviews.delete(previewId);
+    await interaction.update({ content: "🔁 Generating a fresh variation...", files: [], attachments: [], components: [] });
+    await enqueueJob({ interaction, musicGeneration: { ...preview.request, uploadToRoblox: false } });
+    return true;
+  }
+
+  const target = resolveUploadTarget(interaction);
+  if (!target) {
+    await replyUploadTargetRequired(interaction);
+    return true;
+  }
+  generatedMusicPreviews.delete(previewId);
+  await interaction.update({ content: "⏳ Preparing AI music upload...", files: [], attachments: [], components: [] });
+  await enqueueJob({ interaction, generatedUpload: preview, uploader: target.uploader });
+  return true;
+}
+
 async function showRobloxAccount(interaction) {
   if (ensureGuildAdmin(interaction)) {
     await interaction.showModal(robloxServerSetupModal());
@@ -1082,10 +1168,10 @@ async function handleMenuButton(interaction) {
         "9. Check setup: `/roblox-server status`. Change it again: press **Setup Roblox**.",
         "",
         "**Regular users:**",
-        "1. Press **Start Upload** for 1-5 files, **Paste Link** for a public audio file link, or **YouTube** for one public video.",
-        "2. Optionally choose speed, audio style, and a trim range such as `30-90` seconds.",
-        "3. Tick the confirmation that you own the audio or have a license to use it.",
-        "4. Submit the form and wait for the bot to return the Asset ID, moderation status, JSON, and Lua.",
+        "1. Press **AI Music** to generate an original soundtrack, **Start Upload** for 1-5 files, **Paste Link**, or **YouTube**.",
+        "2. AI Music returns a preview with buttons to upload, regenerate, or discard.",
+        "3. For existing audio, optionally choose speed, audio style, and a trim range such as `30-90` seconds.",
+        "4. Confirm the rights/originality statement, submit, and wait for the result.",
         "",
         "Audio links support Dropbox, Google Drive, Discord CDN, Cloudflare R2, and Amazon S3. YouTube links must use the YouTube option.",
         "All uploads still go through Roblox moderation. Playlists, live streams, private videos, and DRM are not supported."
@@ -1093,6 +1179,15 @@ async function handleMenuButton(interaction) {
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
     });
+    return true;
+  }
+
+  if (interaction.customId === "music-menu:ai") {
+    if (!musicGenerator.configured) {
+      await interaction.reply({ content: "🧪 AI Music is installed but not active yet. The bot owner must add `GEMINI_API_KEY` in Railway.", flags: MessageFlags.Ephemeral });
+      return true;
+    }
+    await interaction.showModal(aiMusicModal());
     return true;
   }
 
@@ -1137,6 +1232,25 @@ async function handleMenuButton(interaction) {
 }
 
 async function handleMenuModal(interaction) {
+  if (interaction.customId === "music-menu:ai-modal") {
+    if (interaction.fields.getCheckbox("ai_rights_confirm") !== true) {
+      await interaction.reply({ content: "❌ Confirm that your request is for original music.", flags: MessageFlags.Ephemeral });
+      return true;
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await enqueueJob({
+      interaction,
+      musicGeneration: {
+        prompt: interaction.fields.getTextInputValue("ai_prompt"),
+        genre: interaction.fields.getTextInputValue("ai_genre") || "game soundtrack",
+        mode: interaction.fields.getStringSelectValues("ai_mode")[0],
+        duration: Number(interaction.fields.getStringSelectValues("ai_duration")[0]),
+        bpm: null,
+        uploadToRoblox: false
+      }
+    });
+    return true;
+  }
   if (interaction.customId === "music-menu:server-setup-modal") {
     if (!ensureGuildAdmin(interaction)) {
       await interaction.reply({
@@ -1277,6 +1391,7 @@ async function handleInteraction(interaction) {
   if (interaction.isButton()) {
     if (await handleRobloxAccountButton(interaction)) return;
     if (await handleQuickUploadButton(interaction)) return;
+    if (await handleGeneratedMusicButton(interaction)) return;
     await handleMenuButton(interaction);
     return;
   }

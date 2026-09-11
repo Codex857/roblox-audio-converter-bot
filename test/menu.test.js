@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  aiMusicModal,
   directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
@@ -14,8 +15,9 @@ test("main menu offers file, direct link, YouTube, help and account buttons", ()
   assert.deepEqual(rows.map((row) => row.components.map((component) => component.custom_id)), [
     [
     "music-menu:file",
-    "music-menu:audio-link",
-      "music-menu:youtube"
+      "music-menu:audio-link",
+      "music-menu:youtube",
+      "music-menu:ai"
     ],
     [
       "music-menu:account",
@@ -23,6 +25,17 @@ test("main menu offers file, direct link, YouTube, help and account buttons", ()
     ]
   ]);
   assert.equal(rows[0].components[0].label, "Start Upload");
+});
+
+test("AI music modal keeps generation simple and requires originality confirmation", () => {
+  const modal = aiMusicModal().toJSON();
+  assert.equal(modal.custom_id, "music-menu:ai-modal");
+  assert.deepEqual(modal.components.map((row) => row.component.custom_id), [
+    "ai_prompt", "ai_genre", "ai_mode", "ai_duration", "ai_rights_confirm"
+  ]);
+  assert.deepEqual(modal.components[2].component.options.map((option) => option.value), ["instrumental", "vocal"]);
+  assert.deepEqual(modal.components[3].component.options.map((option) => option.value), ["30", "60", "120"]);
+  assert.equal(modal.components[4].component.type, 23);
 });
 
 test("direct audio modal contains link, speed, preset and rights confirmation", () => {
