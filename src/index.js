@@ -40,6 +40,7 @@ import { UploadHistoryStore } from "./upload-history-store.js";
 import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
 import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js";
 import { createMusicGenerator } from "./music-generation.js";
+import { DailyUsageLimiter } from "./ai-usage.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
   assetDisplayName,
@@ -79,6 +80,7 @@ const musicGenerator = createMusicGenerator({
   apiKey: process.env.GEMINI_API_KEY,
   model: process.env.MUSIC_GENERATION_MODEL?.trim() || "lyria-3.5"
 });
+const aiUsageLimiter = new DailyUsageLimiter({ limit: process.env.AI_DAILY_USER_LIMIT || 5 });
 const guildConfigStore = await new GuildConfigStore({
   directory: join(dataDirectory, "guild-creator-configs"),
   secret: process.env.SERVER_CONFIG_SECRET || token
@@ -641,9 +643,11 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
 
 async function processMusicGenerationJob({ interaction, musicGeneration, uploader }) {
   let workDir;
+  let generationCompleted = false;
   try {
     await editStatus(interaction, `🎼 Generating original ${musicGeneration.duration}-second ${safeDiscordText(musicGeneration.genre)} music with AI...`);
     const generated = await musicGenerator.generate(musicGeneration);
+    generationCompleted = true;
     workDir = await mkdtemp(join(tmpdir(), "eclipse-music-"));
     const baseName = safeBaseName(generated.prompt).slice(0, 60) || "eclipse-ai-music";
     const inputPath = join(workDir, `${baseName}.mp3`);
@@ -694,6 +698,9 @@ async function processMusicGenerationJob({ interaction, musicGeneration, uploade
       components: generatedMusicComponents(previewId),
       allowedMentions: { parse: [] }
     });
+  } catch (error) {
+    if (!generationCompleted && musicGeneration.usageReserved) aiUsageLimiter.release(interaction.user.id);
+    throw error;
   } finally {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -955,9 +962,15 @@ async function handleGeneratedMusicButton(interaction) {
   }
 
   if (action === "regenerate") {
+    const usage = aiUsageLimiter.reserve(interaction.user.id);
+    if (!usage.accepted) {
+      await interaction.reply({ content: `⏱️ Daily AI Music limit reached (${usage.limit}/${usage.limit}). Try again after 00:00 UTC.`, flags: MessageFlags.Ephemeral });
+      return true;
+    }
     generatedMusicPreviews.delete(previewId);
     await interaction.update({ content: "🔁 Generating a fresh variation...", files: [], attachments: [], components: [] });
-    await enqueueJob({ interaction, musicGeneration: { ...preview.request, uploadToRoblox: false } });
+    const accepted = await enqueueJob({ interaction, musicGeneration: { ...preview.request, uploadToRoblox: false, usageReserved: true } });
+    if (!accepted) aiUsageLimiter.release(interaction.user.id);
     return true;
   }
 
@@ -1237,18 +1250,27 @@ async function handleMenuModal(interaction) {
       await interaction.reply({ content: "❌ Confirm that your request is for original music.", flags: MessageFlags.Ephemeral });
       return true;
     }
+    const usage = aiUsageLimiter.reserve(interaction.user.id);
+    if (!usage.accepted) {
+      await interaction.reply({ content: `⏱️ Daily AI Music limit reached (${usage.limit}/${usage.limit}). Try again after 00:00 UTC.`, flags: MessageFlags.Ephemeral });
+      return true;
+    }
+    const selectedMode = interaction.fields.getStringSelectValues("ai_mode")[0];
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await enqueueJob({
+    const accepted = await enqueueJob({
       interaction,
       musicGeneration: {
         prompt: interaction.fields.getTextInputValue("ai_prompt"),
         genre: interaction.fields.getTextInputValue("ai_genre") || "game soundtrack",
-        mode: interaction.fields.getStringSelectValues("ai_mode")[0],
+        mode: selectedMode.replace("_loop", ""),
+        seamlessLoop: selectedMode.endsWith("_loop"),
         duration: Number(interaction.fields.getStringSelectValues("ai_duration")[0]),
         bpm: null,
-        uploadToRoblox: false
+        uploadToRoblox: false,
+        usageReserved: true
       }
     });
+    if (!accepted) aiUsageLimiter.release(interaction.user.id);
     return true;
   }
   if (interaction.customId === "music-menu:server-setup-modal") {
@@ -1400,7 +1422,23 @@ async function handleInteraction(interaction) {
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["menu", "upload", "yt", "generate-music", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+  if (!["menu", "upload", "yt", "generate-music", "ai-status", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "ai-status") {
+    const usage = aiUsageLimiter.status(interaction.user.id);
+    await interaction.reply({
+      content: [
+        `✨ **Eclipse AI Music ${musicGenerator.configured ? "is ready" : "is not configured"}**`,
+        `Model: \`${musicGenerator.model}\``,
+        `Your daily usage: ${usage.used}/${usage.limit} · ${usage.remaining} remaining`,
+        "Daily usage resets at 00:00 UTC.",
+        musicGenerator.configured ? "Open `/menu` and press **AI Music**, or use `/generate-music`." : "The bot owner must set `GEMINI_API_KEY` in Railway."
+      ].join("\n"),
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
 
   if (interaction.commandName === "generate-music") {
     if (!interaction.options.getBoolean("rights_confirm", true)) {
@@ -1414,8 +1452,13 @@ async function handleInteraction(interaction) {
     const uploadToRoblox = interaction.options.getBoolean("upload_to_roblox") || false;
     const target = uploadToRoblox ? resolveUploadTarget(interaction) : null;
     if (uploadToRoblox && !target) return replyUploadTargetRequired(interaction);
+    const usage = aiUsageLimiter.reserve(interaction.user.id);
+    if (!usage.accepted) {
+      await interaction.reply({ content: `⏱️ Daily AI Music limit reached (${usage.limit}/${usage.limit}). Try again after 00:00 UTC.`, flags: MessageFlags.Ephemeral });
+      return;
+    }
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await enqueueJob({
+    const accepted = await enqueueJob({
       interaction,
       uploader: target?.uploader,
       musicGeneration: {
@@ -1424,9 +1467,12 @@ async function handleInteraction(interaction) {
         mode: interaction.options.getString("mode") || "instrumental",
         duration: interaction.options.getInteger("duration") || 30,
         bpm: interaction.options.getInteger("bpm"),
-        uploadToRoblox
+        seamlessLoop: interaction.options.getBoolean("seamless_loop") || false,
+        uploadToRoblox,
+        usageReserved: true
       }
     });
+    if (!accepted) aiUsageLimiter.release(interaction.user.id);
     return;
   }
 
@@ -1630,7 +1676,8 @@ const httpServer = startServer({
     youtubeReady,
     youtubeToolVersion,
     aiMusicConfigured: musicGenerator.configured,
-    aiMusicModel: musicGenerator.model
+    aiMusicModel: musicGenerator.model,
+    aiMusicDailyUserLimit: aiUsageLimiter.limit
   })
 });
 

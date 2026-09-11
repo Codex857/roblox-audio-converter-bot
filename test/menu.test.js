@@ -33,7 +33,7 @@ test("AI music modal keeps generation simple and requires originality confirmati
   assert.deepEqual(modal.components.map((row) => row.component.custom_id), [
     "ai_prompt", "ai_genre", "ai_mode", "ai_duration", "ai_rights_confirm"
   ]);
-  assert.deepEqual(modal.components[2].component.options.map((option) => option.value), ["instrumental", "vocal"]);
+  assert.deepEqual(modal.components[2].component.options.map((option) => option.value), ["instrumental", "instrumental_loop", "vocal", "vocal_loop"]);
   assert.deepEqual(modal.components[3].component.options.map((option) => option.value), ["30", "60", "120"]);
   assert.equal(modal.components[4].component.type, 23);
 });

@@ -80,7 +80,9 @@ export function aiMusicModal() {
           .setCustomId("ai_mode")
           .addOptions(
             new StringSelectMenuOptionBuilder().setLabel("Instrumental").setValue("instrumental").setDefault(true),
-            new StringSelectMenuOptionBuilder().setLabel("Vocal + original lyrics").setValue("vocal")
+            new StringSelectMenuOptionBuilder().setLabel("Instrumental seamless loop").setValue("instrumental_loop"),
+            new StringSelectMenuOptionBuilder().setLabel("Vocal + original lyrics").setValue("vocal"),
+            new StringSelectMenuOptionBuilder().setLabel("Vocal seamless loop").setValue("vocal_loop")
           )),
       new LabelBuilder()
         .setLabel("Duration")

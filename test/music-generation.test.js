@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { createMusicGenerator, normalizeMusicRequest } from "../src/music-generation.js";
 
 test("music request builds a safe Roblox soundtrack prompt", () => {
-  const request = normalizeMusicRequest({ prompt: "Dark futuristic racing music", genre: "synthwave", duration: 60, bpm: 128 });
+  const request = normalizeMusicRequest({ prompt: "Dark futuristic racing music", genre: "synthwave", duration: 60, bpm: 128, seamlessLoop: true });
   assert.equal(request.duration, 60);
   assert.match(request.modelPrompt, /128 BPM/);
   assert.match(request.modelPrompt, /Instrumental only/);
+  assert.match(request.modelPrompt, /seamless loop/);
   assert.throws(() => normalizeMusicRequest({ prompt: "short" }), /at least 10/);
 });
 

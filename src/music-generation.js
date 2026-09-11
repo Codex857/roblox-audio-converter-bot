@@ -14,6 +14,7 @@ export function normalizeMusicRequest(input = {}) {
   }
   const mode = String(input.mode || "instrumental").toLowerCase();
   if (!new Set(["instrumental", "vocal"]).has(mode)) throw new Error("Invalid music mode.");
+  const seamlessLoop = input.seamlessLoop === true;
   const genre = String(input.genre || "game soundtrack").trim().slice(0, 80);
 
   const instructions = [
@@ -21,9 +22,10 @@ export function normalizeMusicRequest(input = {}) {
     prompt,
     bpm ? `Tempo: ${bpm} BPM.` : "",
     mode === "instrumental" ? "Instrumental only, no vocals or spoken words." : "Include original vocals and lyrics.",
+    seamlessLoop ? "Create a seamless loop: the ending must transition naturally back into the beginning, with no fade-out." : "",
     "Make it suitable for a Roblox game soundtrack. Do not imitate a named artist or copyrighted song."
   ].filter(Boolean);
-  return { prompt, genre, mode, duration, bpm, modelPrompt: instructions.join(" ") };
+  return { prompt, genre, mode, duration, bpm, seamlessLoop, modelPrompt: instructions.join(" ") };
 }
 
 function parseGeneratedAudio(body) {

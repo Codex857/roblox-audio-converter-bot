@@ -68,6 +68,7 @@ For Roblox setup:
 - `/menu` - easiest option. Opens the upload menu.
 - `/history` - shows the latest 10 upload results and Asset IDs for this server.
 - `/generate-music` - generates an original AI game soundtrack and optionally uploads it to Roblox.
+- `/ai-status` - shows AI Music readiness and your remaining daily generations.
 - `/roblox-help` - shows a private English help guide.
 - `/roblox-server status` - shows this Discord server's Roblox creator setup.
 - `/roblox-server set` - manually sets creator type and creator ID only.
@@ -95,6 +96,8 @@ Set `GEMINI_API_KEY` in Railway to enable Google Lyria. The optional `MUSIC_GENE
 Use `/generate-music`, describe an original soundtrack, choose instrumental/vocal, duration and optional BPM, then choose whether to upload directly to Roblox. Without direct upload, the bot returns a Roblox-ready OGG preview. API errors, timeouts and rate limits are handled without exposing the key.
 
 The easiest flow is `/menu` > **AI Music**. After generation, preview buttons let the same user upload directly to Roblox, generate a fresh variation, or discard the temporary result. Preview data expires after 15 minutes and is removed on restart.
+
+Set `AI_DAILY_USER_LIMIT` (default `5`) to control API cost. Users can check their UTC daily allowance with `/ai-status`. Instrumental and vocal generations can also request a seamless loop suitable for Roblox background music.
 
 Do not request an exact imitation of a named artist or copyrighted song.
 

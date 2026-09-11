@@ -142,7 +142,12 @@ export const generateMusicCommand = new SlashCommandBuilder()
     { name: "120 seconds", value: 120 }
   ))
   .addIntegerOption((option) => option.setName("bpm").setDescription("Optional tempo (50-220 BPM)").setMinValue(50).setMaxValue(220))
+  .addBooleanOption((option) => option.setName("seamless_loop").setDescription("Make the ending transition smoothly back to the beginning"))
   .addBooleanOption((option) => option.setName("upload_to_roblox").setDescription("Convert and upload the result to this server's Roblox creator"));
+
+export const aiStatusCommand = new SlashCommandBuilder()
+  .setName("ai-status")
+  .setDescription("Check AI Music readiness and your remaining daily generations");
 
 export const robloxAccountCommand = new SlashCommandBuilder()
   .setName("roblox-account")
@@ -215,6 +220,7 @@ export const robloxServerCommand = new SlashCommandBuilder()
 export const allCommands = [
   menuCommand,
   generateMusicCommand,
+  aiStatusCommand,
   historyCommand,
   robloxAccountCommand,
   robloxServerCommand,
