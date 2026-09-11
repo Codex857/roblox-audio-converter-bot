@@ -32,12 +32,19 @@ test("menu command is available without options", () => {
   assert.deepEqual(menu.options || [], []);
 });
 
+test("history command is available without options", () => {
+  const history = allCommands.map((item) => item.toJSON()).find((command) => command.name === "history");
+  assert.ok(history);
+  assert.deepEqual(history.options || [], []);
+});
+
 test("quick upload only asks for one required file", () => {
   const quick = allCommands.map((item) => item.toJSON()).find((command) => command.name === "upload");
   assert.ok(quick);
   assert.deepEqual(quick.options.map((option) => ({ name: option.name, required: option.required })), [
     { name: "file", required: true },
-    { name: "speed", required: false }
+    { name: "speed", required: false },
+    { name: "preset", required: false }
   ]);
 });
 
@@ -47,7 +54,8 @@ test("YouTube upload asks once for the link and rights confirmation", () => {
   assert.deepEqual(youtube.options.map((option) => ({ name: option.name, required: option.required })), [
     { name: "link", required: true },
     { name: "rights_confirm", required: true },
-    { name: "speed", required: false }
+    { name: "speed", required: false },
+    { name: "preset", required: false }
   ]);
 });
 
@@ -61,17 +69,20 @@ test("Roblox server command exposes admin setup subcommands", () => {
   const server = allCommands.map((item) => item.toJSON()).find((command) => command.name === "roblox-server");
   assert.ok(server);
   assert.deepEqual(server.options.map((option) => option.name), [
-    "set", "status", "role-add", "role-remove", "roles", "roles-clear", "clear"
+    "set", "status", "role-add", "role-remove", "roles", "roles-clear", "audit-channel", "audit-clear", "clear"
   ]);
   const set = server.options.find((option) => option.name === "set");
   assert.deepEqual(set.options.map((option) => option.name), ["creator_type", "creator_id"]);
   assert.deepEqual(server.options.find((option) => option.name === "role-add").options.map((option) => option.name), ["role"]);
+  assert.deepEqual(server.options.find((option) => option.name === "audit-channel").options.map((option) => option.name), ["channel"]);
 });
 
 test("upload commands expose supported speed choices", () => {
   for (const name of ["upload", "yt", "roblox-upload", "roblox-audio"]) {
     const command = allCommands.map((item) => item.toJSON()).find((item) => item.name === name);
     const speed = command.options.find((option) => option.name === "speed");
-    assert.deepEqual(speed.choices.map((choice) => choice.value), ["1", "1.5", "2"]);
+    assert.deepEqual(speed.choices.map((choice) => choice.value), ["0.75", "1", "1.25", "1.5", "2"]);
+    const preset = command.options.find((option) => option.name === "preset");
+    assert.deepEqual(preset.choices.map((choice) => choice.value), ["preserve", "balanced", "bass", "vocal"]);
   }
 });

@@ -66,6 +66,7 @@ For Roblox setup:
 ## Discord commands
 
 - `/menu` - easiest option. Opens the upload menu.
+- `/history` - shows the latest 10 upload results and Asset IDs for this server.
 - `/roblox-help` - shows a private English help guide.
 - `/roblox-server status` - shows this Discord server's Roblox creator setup.
 - `/roblox-server set` - manually sets creator type and creator ID only.
@@ -73,6 +74,8 @@ For Roblox setup:
 - `/roblox-server role-remove` - removes one role from the upload allowlist.
 - `/roblox-server roles` - shows the current upload-role policy.
 - `/roblox-server roles-clear` - allows every server member to upload again.
+- `/roblox-server audit-channel` - sends upload results to a selected text channel.
+- `/roblox-server audit-clear` - disables the audit log channel.
 - `/roblox-server clear` - clears this server's Roblox setup.
 - `/upload` - quick single-file upload flow.
 - `/yt` - YouTube link flow.
@@ -107,11 +110,20 @@ Do not paste a YouTube page URL into **Paste Link**. Use the **YouTube** option 
 
 Audio speed choices:
 
+- `0.75x` - slower
 - `1x` - normal
+- `1.25x` - slightly faster
 - `1.5x` - faster
 - `2x` - double speed
 
 Pitch is not raised; the bot uses tempo adjustment.
+
+Audio style choices:
+
+- `Preserve Original` - keeps the original mix, bass, vocals, and dynamics as closely as possible.
+- `Balanced Loudness` - applies loudness normalization.
+- `Bass Boost` - applies a controlled low-frequency boost.
+- `Vocal Clarity` - applies a controlled presence-frequency boost.
 
 ## Environment variables
 
@@ -140,6 +152,7 @@ Per-server setup storage:
 
 - `DATA_DIR=/app/data`
 - `SERVER_CONFIG_SECRET` for a dedicated encryption secret
+- `USER_COOLDOWN_SECONDS=10` to control per-user queue cooldown
 
 If `SERVER_CONFIG_SECRET` is empty, the bot uses `DISCORD_TOKEN` as the encryption secret for per-server API keys.
 For production, set a stable random `SERVER_CONFIG_SECRET` so rotating the Discord token does not make saved credentials unreadable.
@@ -170,6 +183,8 @@ Required OAuth scopes:
 - Roblox duration: under 7 minutes after speed is applied.
 - Batch upload: maximum 5 files per command.
 - Queue: maximum 10 active/pending files globally and 5 pending files per user.
+- Default queue cooldown: 10 seconds per accepted user job.
+- Upload history: latest 500 records per Discord server on persistent storage.
 - One conversion/upload runs at a time to avoid exhausting small Railway containers.
 
 Audio limits are based on Roblox Audio Assets and Open Cloud Assets documentation.

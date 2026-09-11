@@ -13,7 +13,8 @@ const QUALITY_BITRATES = Object.freeze({
   standard: "160k",
   high: "192k"
 });
-const AUDIO_SPEEDS = new Set([1, 1.5, 2]);
+const AUDIO_SPEEDS = new Set([0.75, 1, 1.25, 1.5, 2]);
+const AUDIO_PRESETS = new Set(["preserve", "balanced", "bass", "vocal"]);
 
 export function bitrateForQuality(quality = "standard") {
   const bitrate = QUALITY_BITRATES[quality];
@@ -23,14 +24,23 @@ export function bitrateForQuality(quality = "standard") {
 
 export function normalizeAudioSpeed(value = 1) {
   const speed = Number(value);
-  if (!AUDIO_SPEEDS.has(speed)) throw new Error("Audio speed must be 1x, 1.5x, or 2x.");
+  if (!AUDIO_SPEEDS.has(speed)) throw new Error("Audio speed must be 0.75x, 1x, 1.25x, 1.5x, or 2x.");
   return speed;
+}
+
+export function normalizeAudioPreset(value = "preserve") {
+  const preset = String(value || "preserve").trim().toLowerCase();
+  if (!AUDIO_PRESETS.has(preset)) throw new Error("Invalid audio preset.");
+  return preset;
 }
 
 export function audioFilterForOptions(options = {}) {
   const speed = normalizeAudioSpeed(options.speed ?? 1);
+  const preset = normalizeAudioPreset(options.preset);
   const filters = ["aresample=48000"];
   if (speed !== 1) filters.push(`atempo=${speed}`);
+  if (preset === "bass") filters.push("bass=g=5:f=100:w=0.7");
+  if (preset === "vocal") filters.push("equalizer=f=2500:t=q:w=1:g=3");
   filters.push(options.normalize === true
     ? "loudnorm=I=-14:TP=-1.5:LRA=11"
     : "alimiter=limit=0.95:attack=5:release=50");
@@ -145,7 +155,7 @@ export async function convertAudio(ffmpegPath, inputPath, outputPath, options = 
   const bitrate = bitrateForQuality(quality);
   // Preserve mode only resamples and catches peaks. Loudness normalization is
   // opt-in because it deliberately changes the dynamics of the original mix.
-  const audioFilter = audioFilterForOptions({ normalize, speed: options.speed });
+  const audioFilter = audioFilterForOptions({ normalize, speed: options.speed, preset: options.preset });
   const args = [
     "-hide_banner", "-loglevel", "error", "-y", "-i", inputPath,
     "-map", "0:a:0", "-vn", "-sn", "-dn",

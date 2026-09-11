@@ -14,16 +14,39 @@ import {
   Rocket,
   Settings2,
   ShieldCheck,
-  Sparkles,
   Zap,
 } from 'lucide-react';
 
 const stats = [
   ['24/7', 'Railway runtime'],
   ['1-5', 'files per batch'],
-  ['2x', 'speed control'],
+  ['5', 'speed controls'],
   ['OGG', 'Roblox-ready output'],
 ];
+
+type BotStatus = {
+  ok: boolean;
+  version?: string;
+  discordReady?: boolean;
+  guilds?: number;
+  queue?: number;
+  queueCapacity?: number;
+  processedJobs?: number;
+  uptimeSeconds?: number;
+};
+
+async function getBotStatus(): Promise<BotStatus> {
+  try {
+    const response = await fetch('https://roblox-audio-converter-bot-production-f79c.up.railway.app/health', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return { ok: false };
+    return await response.json() as BotStatus;
+  } catch {
+    return { ok: false };
+  }
+}
 
 const features = [
   {
@@ -39,7 +62,7 @@ const features = [
   {
     icon: Gauge,
     title: 'Speed without chaos',
-    body: 'Choose 1x, 1.5x, or 2x. The bot keeps pitch stable while preparing the audio for Roblox limits.',
+    body: 'Choose 0.75x, 1x, 1.25x, 1.5x, or 2x plus Preserve, Balanced, Bass Boost, and Vocal Clarity presets.',
   },
   {
     icon: ShieldCheck,
@@ -55,7 +78,10 @@ const flow = [
   ['04', 'Receive IDs', 'The bot returns Asset IDs plus JSON and Lua exports.'],
 ];
 
-export default function Home() {
+export default async function Home() {
+  const status = await getBotStatus();
+  const online = status.ok && status.discordReady;
+  const uptimeHours = Math.floor((status.uptimeSeconds || 0) / 3600);
   return (
     <main className="min-h-screen overflow-hidden bg-[#040713] text-white">
       <div className="pointer-events-none fixed inset-0">
@@ -87,8 +113,8 @@ export default function Home() {
       <section id="top" className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-5 pb-20 pt-10 sm:px-8 lg:grid-cols-[1.02fr_0.98fr] lg:pb-28 lg:pt-16">
         <div>
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">
-            <Sparkles className="h-4 w-4" />
-            Discord audio uploads, polished for Roblox creators
+            <span className={`h-2.5 w-2.5 rounded-full ${online ? 'bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.9)]' : 'bg-amber-300'}`} />
+            {online ? `Bot online · v${status.version || 'live'}` : 'Status temporarily unavailable'}
           </div>
           <h1 className="max-w-4xl text-5xl font-semibold leading-[0.95] tracking-[-0.06em] text-white sm:text-7xl lg:text-8xl">
             Convert audio into Roblox assets at eclipse speed.
@@ -153,6 +179,27 @@ export default function Home() {
               <p className="mt-2 text-sm text-white/50">{label}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-7xl px-5 pt-10 sm:px-8">
+        <div className="grid gap-3 rounded-[2rem] border border-white/10 bg-black/25 p-5 backdrop-blur md:grid-cols-4">
+          <div>
+            <p className="text-sm text-white/45">Discord bot</p>
+            <p className="mt-1 text-xl font-semibold">{online ? 'Online' : 'Checking'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-white/45">Connected servers</p>
+            <p className="mt-1 text-xl font-semibold">{status.guilds ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-white/45">Queue</p>
+            <p className="mt-1 text-xl font-semibold">{status.queue ?? 0} / {status.queueCapacity ?? 10}</p>
+          </div>
+          <div>
+            <p className="text-sm text-white/45">Current uptime</p>
+            <p className="mt-1 text-xl font-semibold">{online ? `${uptimeHours}h` : '—'}</p>
+          </div>
         </div>
       </section>
 
@@ -245,6 +292,7 @@ export default function Home() {
               <li className="flex gap-3"><Zap className="mt-1 h-4 w-4 shrink-0 text-cyan-200" /> Fallback buttons keep users moving without restarting the bot.</li>
               <li className="flex gap-3"><Zap className="mt-1 h-4 w-4 shrink-0 text-cyan-200" /> Default Roblox asset description: by codex eclipse.</li>
               <li className="flex gap-3"><MessageCircle className="mt-1 h-4 w-4 shrink-0 text-cyan-200" /> Discord-first UX with private, guided replies.</li>
+              <li className="flex gap-3"><Activity className="mt-1 h-4 w-4 shrink-0 text-cyan-200" /> Live queue, version, server count, and uptime status.</li>
             </ul>
           </div>
         </div>

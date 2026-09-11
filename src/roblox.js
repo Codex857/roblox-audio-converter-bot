@@ -139,7 +139,7 @@ export function createRobloxUploader(config = {}) {
     return normalizeOperationPath(operation.path || operation.operationPath || operation.name);
   }
 
-  async function waitForAsset(operationPath, { attempts = 60, intervalMs = 3000 } = {}) {
+  async function waitForAssetResult(operationPath, { attempts = 60, intervalMs = 3000 } = {}) {
     const path = normalizeOperationPath(operationPath);
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
@@ -153,7 +153,10 @@ export function createRobloxUploader(config = {}) {
           }
           const assetId = assetIdFromOperation(operation);
           if (!assetId) throw new Error("Roblox completed the operation without an Asset ID.");
-          return String(assetId);
+          return {
+            assetId: String(assetId),
+            moderationState: operation?.response?.moderationResult?.moderationState || "UNKNOWN"
+          };
         }
       } catch (error) {
         if (!error?.retryable) throw error;
@@ -163,7 +166,11 @@ export function createRobloxUploader(config = {}) {
     throw new Error("Roblox is still processing or the connection was interrupted. Check Creator Dashboard shortly.");
   }
 
-  return { configured, creatorType, creatorId, upload, waitForAsset };
+  async function waitForAsset(operationPath, options) {
+    return (await waitForAssetResult(operationPath, options)).assetId;
+  }
+
+  return { configured, creatorType, creatorId, upload, waitForAsset, waitForAssetResult };
 }
 
 export function canUseRobloxUpload(interaction, config = {}) {

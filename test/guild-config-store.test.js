@@ -59,6 +59,8 @@ test("guild config store saves, reloads and deletes server creator config", asyn
     assert.equal(store.getUploadConfig(GUILD_ID).apiKey, API_KEY);
     await store.setUploadRoles(GUILD_ID, ["222222222222222222"], "111");
     assert.deepEqual(store.get(GUILD_ID).uploadRoleIds, ["222222222222222222"]);
+    await store.setAuditChannel(GUILD_ID, "333333333333333333", "111");
+    assert.equal(store.get(GUILD_ID).auditChannelId, "333333333333333333");
     const raw = await readFile(join(dir, `${GUILD_ID}.json`), "utf8");
     assert.doesNotMatch(raw, new RegExp(API_KEY));
 

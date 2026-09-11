@@ -33,6 +33,8 @@ import {
 } from "./menu.js";
 import { startServer } from "./server.js";
 import { buildUploadExports } from "./upload-results.js";
+import { CooldownGate, progressBar } from "./queue-policy.js";
+import { UploadHistoryStore } from "./upload-history-store.js";
 import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
 import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js";
 import {
@@ -42,13 +44,14 @@ import {
   downloadAttachment,
   inspectAudio,
   inspectConvertedAudio,
+  normalizeAudioPreset,
   normalizeAudioSpeed,
   safeBaseName,
   validateAttachment
 } from "./audio.js";
 
 const token = process.env.DISCORD_TOKEN;
-const BOT_VERSION = "3.0.0";
+const BOT_VERSION = "3.1.0";
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
@@ -72,6 +75,9 @@ const guildConfigStore = await new GuildConfigStore({
   directory: join(dataDirectory, "guild-creator-configs"),
   secret: process.env.SERVER_CONFIG_SECRET || token
 }).init();
+const uploadHistoryStore = await new UploadHistoryStore({
+  directory: join(dataDirectory, "upload-history")
+}).init();
 if (!process.env.SERVER_CONFIG_SECRET?.trim()) {
   console.warn("SERVER_CONFIG_SECRET is not set; encrypted server credentials are using the Discord token-derived fallback key.");
 }
@@ -94,6 +100,7 @@ const defaultUploaderUsers = new Set(String(process.env.ROBLOX_DEFAULT_USER_IDS 
   .filter(Boolean));
 const MAX_PENDING_FILES = 10;
 const MAX_PENDING_FILES_PER_USER = 5;
+const USER_COOLDOWN_MS = Math.max(0, Number(process.env.USER_COOLDOWN_SECONDS || 10) * 1000);
 const QUICK_CONFIRM_MS = 60_000;
 const DEFAULT_ASSET_DESCRIPTION = "by codex eclipse";
 let activeFileCount = 0;
@@ -102,6 +109,8 @@ let processing = false;
 let youtubeReady = false;
 let youtubeToolVersion = null;
 let youtubeRefreshPromise = null;
+const cooldownGate = new CooldownGate({ cooldownMs: USER_COOLDOWN_MS });
+const jobMetrics = { processed: 0, fatalFailures: 0 };
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Bot is online as ${readyClient.user.tag}`);
@@ -195,6 +204,10 @@ function safeDiscordText(value) {
 
 function speedText(speed = 1) {
   return `${normalizeAudioSpeed(speed)}x`;
+}
+
+function presetText(preset = "preserve") {
+  return ({ preserve: "preserve original", balanced: "balanced", bass: "bass boost", vocal: "vocal clarity" })[normalizeAudioPreset(preset)];
 }
 
 function editStatus(interaction, content) {
@@ -301,7 +314,7 @@ function quickUploadComponents(requestId) {
   )];
 }
 
-async function processConversionJob({ interaction, attachments, quality, normalize, speed = 1 }) {
+async function processConversionJob({ interaction, attachments, quality, normalize, speed = 1, preset = "preserve" }) {
   const attachment = attachments[0];
   let workDir;
 
@@ -315,15 +328,15 @@ async function processConversionJob({ interaction, attachments, quality, normali
     await downloadAttachment(attachment, inputPath);
     await interaction.editReply("🔎 Checking audio duration and format...");
     await inspectAudio(ffprobeStatic.path, inputPath, { speed });
-    await interaction.editReply(`🎛️ Converting audio (${quality}, ${normalize ? "normalize" : "preserve mix"}, ${speedText(speed)})...`);
-    await convertAudio(ffmpegPath, inputPath, outputPath, { quality, normalize, speed });
+    await interaction.editReply(`🎛️ Converting audio (${quality}, ${presetText(preset)}, ${speedText(speed)})...`);
+    await convertAudio(ffmpegPath, inputPath, outputPath, { quality, normalize, speed, preset });
 
     let effectiveQuality = quality;
     let outputStat = await stat(outputPath);
     if (outputStat.size > DISCORD_SAFE_MAX_BYTES && quality !== "compact") {
       await interaction.editReply("📦 Output is too large for Discord; optimizing bitrate...");
       effectiveQuality = "compact";
-      await convertAudio(ffmpegPath, inputPath, outputPath, { quality: effectiveQuality, normalize, speed });
+      await convertAudio(ffmpegPath, inputPath, outputPath, { quality: effectiveQuality, normalize, speed, preset });
       outputStat = await stat(outputPath);
     }
     const output = await inspectConvertedAudio(ffprobeStatic.path, outputPath);
@@ -335,7 +348,7 @@ async function processConversionJob({ interaction, attachments, quality, normali
     await interaction.editReply({
       content: [
         `✅ Done: 48 kHz stereo OGG · ${(output.duration / 60).toFixed(2)} minutes · ${(output.size / 1024 / 1024).toFixed(2)} MB.`,
-        `Quality: ${effectiveQuality}${normalize ? " · loudness normalized" : " · original mix preserved"} · speed ${speedText(speed)}.`,
+        `Quality: ${effectiveQuality} · ${presetText(preset)} · speed ${speedText(speed)}.`,
         "Upload only audio you own or are licensed to use. Roblox moderation approval is not guaranteed."
       ].join("\n"),
       files: [{ attachment: outputPath, name: outputName }],
@@ -352,7 +365,7 @@ async function processConversionJob({ interaction, attachments, quality, normali
   }
 }
 
-async function startUploadOne({ interaction, attachment, index, total, requestedName, description, uploader, speed = 1 }) {
+async function startUploadOne({ interaction, attachment, index, total, requestedName, description, uploader, speed = 1, preset = "preserve" }) {
   let workDir;
   const displayName = requestedName
     ? assetDisplayName(requestedName, { stripExtension: false })
@@ -368,8 +381,8 @@ async function startUploadOne({ interaction, attachment, index, total, requested
     await downloadAttachment(attachment, inputPath);
     await editStatus(interaction, `🔎 [${index}/${total}] Checking **${safeDiscordText(attachment.name)}**...`);
     await inspectAudio(ffprobeStatic.path, inputPath, { speed });
-    await editStatus(interaction, `🎛️ [${index}/${total}] Converting to high quality OGG, normalized loudness, speed ${speedText(speed)}...`);
-    await convertAudio(ffmpegPath, inputPath, outputPath, { quality: "high", normalize: true, speed });
+    await editStatus(interaction, `🎛️ [${index}/${total}] Converting to high quality OGG · ${presetText(preset)} · ${speedText(speed)}...`);
+    await convertAudio(ffmpegPath, inputPath, outputPath, { quality: "high", normalize: preset !== "preserve", speed, preset });
     await inspectConvertedAudio(ffprobeStatic.path, outputPath);
 
     await editStatus(interaction, `☁️ [${index}/${total}] Uploading **${safeDiscordText(displayName)}** to Roblox...`);
@@ -385,12 +398,21 @@ async function startUploadOne({ interaction, attachment, index, total, requested
   }
 }
 
-async function replyWithUploadResults(interaction, results) {
+function moderationText(state) {
+  return ({
+    MODERATION_STATE_APPROVED: "approved",
+    MODERATION_STATE_REJECTED: "rejected",
+    MODERATION_STATE_REVIEWING: "under review",
+    MODERATION_STATE_PENDING: "pending"
+  })[state] || "processing/unknown";
+}
+
+async function replyWithUploadResults(interaction, results, source = "file") {
   const successful = results.filter((result) => result.assetId);
   const failed = results.filter((result) => result.error);
   const summary = [
     `${successful.length ? "✅" : "❌"} Finished: ${successful.length}/${results.length} uploads succeeded.`,
-    ...successful.map((result) => `✅ ${safeDiscordText(result.name)} — **${result.assetId}**`),
+    ...successful.map((result) => `✅ ${safeDiscordText(result.name)} — **${result.assetId}** · ${moderationText(result.moderationState)}`),
     ...failed.map((result) => `❌ ${safeDiscordText(result.name)} — ${safeDiscordText(result.error)}`),
     successful.length ? "JSON and Lua files are attached. Use audio only according to your rights/license." : "No assets were uploaded successfully."
   ];
@@ -403,6 +425,30 @@ async function replyWithUploadResults(interaction, results) {
     );
   }
 
+  if (interaction.guildId) {
+    await Promise.all(results.map((result) => uploadHistoryStore.add(interaction.guildId, {
+      id: randomUUID(),
+      userId: interaction.user.id,
+      source,
+      ...result
+    }))).catch((error) => console.error("Upload history error:", errorMessage(error)));
+
+    const auditChannelId = guildConfigStore.get(interaction.guildId)?.auditChannelId;
+    const auditChannel = auditChannelId ? interaction.guild?.channels.cache.get(auditChannelId) : null;
+    if (auditChannel?.isTextBased?.() && auditChannel?.send) {
+      const auditLines = [
+        `🎵 Upload by <@${interaction.user.id}>`,
+        ...results.map((result) => result.assetId
+          ? `✅ ${safeDiscordText(result.name)} — Asset ${result.assetId} · ${moderationText(result.moderationState)}`
+          : `❌ ${safeDiscordText(result.name)} — ${safeDiscordText(result.error)}`)
+      ];
+      await auditChannel.send({
+        content: auditLines.join("\n").slice(0, 1950),
+        allowedMentions: { parse: [] }
+      }).catch((error) => console.warn("Audit channel send failed:", errorMessage(error)));
+    }
+  }
+
   await interaction.editReply({
     content: summary.join("\n").slice(0, 1950),
     files,
@@ -411,7 +457,7 @@ async function replyWithUploadResults(interaction, results) {
   });
 }
 
-async function processUploadJob({ interaction, attachments, upload, uploader, speed = 1 }) {
+async function processUploadJob({ interaction, attachments, upload, uploader, speed = 1, preset = "preserve" }) {
   const results = [];
   const started = [];
 
@@ -427,7 +473,8 @@ async function processUploadJob({ interaction, attachments, upload, uploader, sp
         requestedName,
         description: upload.description,
         uploader,
-        speed
+        speed,
+        preset
       }));
     } catch (error) {
       results.push({
@@ -447,8 +494,8 @@ async function processUploadJob({ interaction, attachments, upload, uploader, sp
     );
     const completed = await Promise.all(started.map(async (item) => {
       try {
-        const assetId = await uploader.waitForAsset(item.operationPath);
-        return { index: item.index, name: item.name, assetId };
+        const uploaded = await uploader.waitForAssetResult(item.operationPath);
+        return { index: item.index, name: item.name, ...uploaded };
       } catch (error) {
         return { index: item.index, name: item.name, error: errorMessage(error) };
       }
@@ -457,7 +504,7 @@ async function processUploadJob({ interaction, attachments, upload, uploader, sp
   }
 
   results.sort((left, right) => left.index - right.index);
-  await replyWithUploadResults(interaction, results);
+  await replyWithUploadResults(interaction, results, "file");
 }
 
 async function processDirectAudioUploadJob({ interaction, directAudio, uploader }) {
@@ -474,8 +521,8 @@ async function processDirectAudioUploadJob({ interaction, directAudio, uploader 
 
     await editStatus(interaction, `🔎 Checking **${safeDiscordText(displayName)}**...`);
     await inspectAudio(ffprobeStatic.path, source.path, { speed: directAudio.speed });
-    await editStatus(interaction, `🎛️ Editing **${safeDiscordText(displayName)}** with Roblox settings, speed ${speedText(directAudio.speed)}...`);
-    await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: true, speed: directAudio.speed });
+    await editStatus(interaction, `🎛️ Editing **${safeDiscordText(displayName)}** · ${presetText(directAudio.preset)} · ${speedText(directAudio.speed)}...`);
+    await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: directAudio.preset !== "preserve", speed: directAudio.speed, preset: directAudio.preset });
     await inspectConvertedAudio(ffprobeStatic.path, outputPath);
 
     await editStatus(interaction, `☁️ Uploading **${safeDiscordText(displayName)}** to Roblox...`);
@@ -486,14 +533,14 @@ async function processDirectAudioUploadJob({ interaction, directAudio, uploader 
       description: DEFAULT_ASSET_DESCRIPTION
     });
     await editStatus(interaction, "⏳ Roblox is processing the audio...");
-    const assetId = await uploader.waitForAsset(operationPath);
-    await replyWithUploadResults(interaction, [{ index: 1, name: displayName, assetId }]);
+    const uploaded = await uploader.waitForAssetResult(operationPath);
+    await replyWithUploadResults(interaction, [{ index: 1, name: displayName, ...uploaded }], "direct-link");
   } catch (error) {
     await replyWithUploadResults(interaction, [{
       index: 1,
       name: displayName,
       error: errorMessage(error)
-    }]);
+    }], "direct-link");
   } finally {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -517,9 +564,9 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
     });
     displayName = assetDisplayName(source.title, { stripExtension: false });
 
-    await editStatus(interaction, `🎛️ Editing **${safeDiscordText(displayName)}** with Roblox settings...`);
+    await editStatus(interaction, `🎛️ Editing **${safeDiscordText(displayName)}** · ${presetText(youtube.preset)} · ${speedText(youtube.speed)}...`);
     await inspectAudio(ffprobeStatic.path, source.path, { speed: youtube.speed });
-    await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: true, speed: youtube.speed });
+    await convertAudio(ffmpegPath, source.path, outputPath, { quality: "high", normalize: youtube.preset !== "preserve", speed: youtube.speed, preset: youtube.preset });
     await inspectConvertedAudio(ffprobeStatic.path, outputPath);
 
     await editStatus(interaction, `☁️ Uploading **${safeDiscordText(displayName)}** to Roblox...`);
@@ -530,8 +577,8 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
       description: DEFAULT_ASSET_DESCRIPTION
     });
     await editStatus(interaction, "⏳ Roblox is processing the audio...");
-    const assetId = await uploader.waitForAsset(operationPath);
-    await replyWithUploadResults(interaction, [{ index: 1, name: displayName, assetId }]);
+    const uploaded = await uploader.waitForAssetResult(operationPath);
+    await replyWithUploadResults(interaction, [{ index: 1, name: displayName, ...uploaded }], "youtube");
   } catch (error) {
     const message = errorMessage(error);
     if (/YouTube is asking for login|blocking the cloud server address/i.test(message)) {
@@ -567,7 +614,7 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
       index: 1,
       name: displayName,
       error: message
-    }]);
+    }], "youtube");
   } finally {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -590,7 +637,9 @@ async function drainQueue() {
       activeUserId = job.interaction?.user?.id || null;
       try {
         await processAudioJob(job);
+        jobMetrics.processed += 1;
       } catch (error) {
+        jobMetrics.fatalFailures += 1;
         console.error("Audio job error:", error);
         await job.interaction.editReply({
           content: `❌ Audio job failed: ${errorMessage(error)}`,
@@ -627,9 +676,20 @@ async function enqueueJob(job) {
     return false;
   }
 
+  const cooldown = cooldownGate.accept(job.interaction.user.id);
+  if (!cooldown.accepted) {
+    await job.interaction.editReply({
+      content: `⏱️ Please wait ${Math.ceil(cooldown.remainingMs / 1000)} second(s) before adding another job.`,
+      components: [],
+      allowedMentions: { parse: [] }
+    });
+    return false;
+  }
+
   jobQueue.push(job);
   if (pendingBefore > 0) {
-    await editStatus(job.interaction, `⏳ Added to queue. ${pendingBefore} file(s) ahead.`);
+    const position = jobQueue.length;
+    await editStatus(job.interaction, `⏳ Added to queue at position ${position}.\n${progressBar(0, position + 1)} · ${pendingBefore} file(s) ahead.`);
   }
   void drainQueue();
   return true;
@@ -641,6 +701,7 @@ async function showQuickUploadConfirmation(interaction) {
 
   const attachment = interaction.options.getAttachment("file", true);
   const speed = normalizeAudioSpeed(interaction.options.getString("speed") || "1");
+  const preset = normalizeAudioPreset(interaction.options.getString("preset") || "preserve");
   try {
     validateAttachment(attachment);
   } catch (error) {
@@ -654,13 +715,14 @@ async function showQuickUploadConfirmation(interaction) {
     interaction,
     attachment,
     target,
-    speed
+    speed,
+    preset
   });
   try {
     await interaction.reply({
       content: [
         `🎵 File: **${safeDiscordText(attachment.name)}**`,
-        `The bot will convert audio at speed ${speedText(speed)} and upload to Roblox: ${safeDiscordText(target.label)}.`,
+        `The bot will use ${presetText(preset)} at ${speedText(speed)} and upload to Roblox: ${safeDiscordText(target.label)}.`,
         "Press the green button to confirm you own this audio or have a license to use it."
       ].join("\n"),
       components: quickUploadComponents(requestId),
@@ -703,6 +765,7 @@ async function showYouTubeConfirmation(interaction) {
 
   let url;
   const speed = normalizeAudioSpeed(interaction.options.getString("speed") || "1");
+  const preset = normalizeAudioPreset(interaction.options.getString("preset") || "preserve");
   try {
     url = normalizeYouTubeUrl(interaction.options.getString("link", true));
   } catch (error) {
@@ -711,8 +774,8 @@ async function showYouTubeConfirmation(interaction) {
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  await editStatus(interaction, `⏳ Link received. Starting auto-process at speed ${speedText(speed)} and uploading to ${safeDiscordText(target.label)}...\n<${url}>`);
-  await enqueueJob({ interaction, youtube: { url, speed }, uploader: target.uploader });
+  await editStatus(interaction, `⏳ Link received. Starting ${presetText(preset)} processing at ${speedText(speed)} and uploading to ${safeDiscordText(target.label)}...\n<${url}>`);
+  await enqueueJob({ interaction, youtube: { url, speed, preset }, uploader: target.uploader });
 }
 
 async function handleQuickUploadButton(interaction) {
@@ -748,8 +811,9 @@ async function handleQuickUploadButton(interaction) {
       interaction: pending.interaction,
       attachments: [pending.attachment],
       quality: "high",
-      normalize: true,
+      normalize: pending.preset !== "preserve",
       speed: pending.speed,
+      preset: pending.preset,
       uploader: pending.target.uploader,
       upload: {
         name: null,
@@ -840,7 +904,8 @@ async function showRobloxServer(interaction) {
             `API key: ${config.apiKeyConfigured ? `configured (fingerprint ${config.apiKeyFingerprint})` : "not configured"}`,
             config.uploadRoleIds.length
               ? `Upload roles: ${config.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}`
-              : "Upload roles: everyone in this server"
+              : "Upload roles: everyone in this server",
+            `Audit channel: ${config.auditChannelId ? `<#${config.auditChannelId}>` : "disabled"}`
           ].join("\n")
         : "⚠️ This server does not have a Roblox creator yet. Use `/roblox-server set` first.",
       flags: MessageFlags.Ephemeral
@@ -878,6 +943,19 @@ async function showRobloxServer(interaction) {
       content: saved.uploadRoleIds.length
         ? `✅ Upload access is limited to: ${saved.uploadRoleIds.map((id) => `<@&${id}>`).join(", ")}`
         : "✅ Upload role restrictions are cleared. Every server member may upload.",
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
+
+  if (["audit-channel", "audit-clear"].includes(subcommand)) {
+    const channel = subcommand === "audit-channel" ? interaction.options.getChannel("channel", true) : null;
+    const saved = await guildConfigStore.setAuditChannel(interaction.guildId, channel?.id || null, interaction.user.id);
+    await interaction.reply({
+      content: saved.auditChannelId
+        ? `✅ Upload audit logs will be sent to <#${saved.auditChannelId}>.`
+        : "✅ Upload audit logging is disabled.",
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
     });
@@ -942,7 +1020,7 @@ async function handleMenuButton(interaction) {
         "9. Check setup: `/roblox-server status`. Change it again: press **Setup Roblox**.",
         "",
         "**Regular users:**",
-        "1. Press **Upload File** for 1-5 files, **Paste Link** for a public audio file link, or **YouTube** for one public video.",
+        "1. Press **Start Upload** for 1-5 files, **Paste Link** for a public audio file link, or **YouTube** for one public video.",
         "2. Tick the confirmation that you own the audio or have a license to use it.",
         "3. Submit the form and wait for the bot to return the Asset ID, JSON, and Lua.",
         "",
@@ -1061,6 +1139,7 @@ async function handleMenuModal(interaction) {
   if (interaction.customId === "music-menu:file-modal") {
     const attachments = [...interaction.fields.getUploadedFiles("audio_files", true).values()];
     const speed = normalizeAudioSpeed(interaction.fields.getStringSelectValues("audio_speed")[0]);
+    const preset = normalizeAudioPreset(interaction.fields.getStringSelectValues("audio_preset")[0]);
     try {
       for (const attachment of attachments) validateAttachment(attachment);
     } catch (error) {
@@ -1073,8 +1152,9 @@ async function handleMenuModal(interaction) {
       interaction,
       attachments,
       quality: "high",
-      normalize: true,
+      normalize: preset !== "preserve",
       speed,
+      preset,
       uploader: target.uploader,
       upload: {
         name: null,
@@ -1087,6 +1167,7 @@ async function handleMenuModal(interaction) {
   if (interaction.customId === "music-menu:audio-link-modal") {
     let url;
     const speed = normalizeAudioSpeed(interaction.fields.getStringSelectValues("audio_speed")[0]);
+    const preset = normalizeAudioPreset(interaction.fields.getStringSelectValues("audio_preset")[0]);
     try {
       url = normalizeDirectAudioUrl(interaction.fields.getTextInputValue("audio_link"));
     } catch (error) {
@@ -1095,7 +1176,7 @@ async function handleMenuModal(interaction) {
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await enqueueJob({ interaction, directAudio: { url, speed }, uploader: target.uploader });
+    await enqueueJob({ interaction, directAudio: { url, speed, preset }, uploader: target.uploader });
     return true;
   }
 
@@ -1109,6 +1190,7 @@ async function handleMenuModal(interaction) {
 
   let url;
   const speed = normalizeAudioSpeed(interaction.fields.getStringSelectValues("audio_speed")[0]);
+  const preset = normalizeAudioPreset(interaction.fields.getStringSelectValues("audio_preset")[0]);
   try {
     url = normalizeYouTubeUrl(interaction.fields.getTextInputValue("youtube_link"));
   } catch (error) {
@@ -1117,7 +1199,7 @@ async function handleMenuModal(interaction) {
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  await enqueueJob({ interaction, youtube: { url, speed }, uploader: target.uploader });
+  await enqueueJob({ interaction, youtube: { url, speed, preset }, uploader: target.uploader });
   return true;
 }
 
@@ -1133,7 +1215,30 @@ async function handleInteraction(interaction) {
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["menu", "upload", "yt", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server"].includes(interaction.commandName)) return;
+  if (!["menu", "upload", "yt", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "history") {
+    if (!interaction.inGuild()) {
+      await interaction.reply({ content: "❌ Upload history is available inside a Discord server only.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const config = guildConfigStore.get(interaction.guildId);
+    if (config && !canUseGuildUpload(interaction, config)) return replyUploadTargetRequired(interaction);
+    const records = await uploadHistoryStore.list(interaction.guildId, { limit: 10 });
+    await interaction.reply({
+      content: records.length
+        ? ["📚 **Latest Roblox uploads**", ...records.map((record) => {
+            const outcome = record.assetId
+              ? `Asset **${record.assetId}** · ${moderationText(record.moderationState)}`
+              : `Failed · ${safeDiscordText(record.error)}`;
+            return `${record.assetId ? "✅" : "❌"} ${safeDiscordText(record.name)} — ${outcome}`;
+          })].join("\n").slice(0, 1950)
+        : "📭 No upload history for this server yet.",
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
 
   if (interaction.commandName === "menu") {
     const serverConfig = interaction.guildId ? guildConfigStore.get(interaction.guildId) : null;
@@ -1201,14 +1306,16 @@ async function handleInteraction(interaction) {
         "5. Choose `Group` + Group ID to upload to a group/community.",
         "6. Choose `User` + User ID to upload to a user creator.",
         "7. For groups, the API key must be given access to that Group ID in Roblox.",
-        "8. Use `/roblox-server status` to confirm. Use `/roblox-server clear` if the setup is wrong.",
+        "8. Use `/roblox-server role-add` for upload roles and `/roblox-server audit-channel` for logs.",
+        "9. Use `/roblox-server status` to confirm. Use `/roblox-server clear` if the setup is wrong.",
         "",
         "**For regular users:**",
-        "**Easiest way:** type `/menu`, then press **Upload File**, **Paste Link**, or **YouTube**.",
+        "**Easiest way:** type `/menu`, then press **Start Upload**, **Paste Link**, or **YouTube**.",
         "Fill the short form, tick the audio rights confirmation, then submit.",
         "",
         "The menu supports 1-5 files, one public audio file link, or one public YouTube video link.",
-        "Choose speed `1x`, `1.5x`, or `2x`, then wait for the bot to return the Asset ID, JSON, and Lua.",
+        "Choose speed `0.75x`, `1x`, `1.25x`, `1.5x`, or `2x` and an audio style, then wait for the Asset ID, status, JSON, and Lua.",
+        "Use `/history` to view the latest uploads for this server.",
         "",
         "Older commands `/upload`, `/yt`, and `/roblox-upload` still work.",
         "Use audio you own or are licensed to use. Every upload still goes through Roblox moderation."
@@ -1249,6 +1356,7 @@ async function handleInteraction(interaction) {
     quality: directUpload ? "high" : interaction.options.getString("quality") || "standard",
     normalize: directUpload ? true : interaction.options.getBoolean("normalize") || false,
     speed: normalizeAudioSpeed(interaction.options.getString("speed") || "1"),
+    preset: normalizeAudioPreset(interaction.options.getString("preset") || "preserve"),
     uploader: target?.uploader,
     upload: directUpload ? {
       name: interaction.options.getString("name") || null,
@@ -1288,12 +1396,19 @@ const httpServer = startServer({
     discordReady: client.isReady(),
     guilds: client.guilds.cache.size,
     queue: pendingFileCount(),
+    queueCapacity: MAX_PENDING_FILES,
+    activeJobs: processing ? 1 : 0,
+    processedJobs: jobMetrics.processed,
+    fatalJobFailures: jobMetrics.fatalFailures,
+    uptimeSeconds: Math.floor(process.uptime()),
     robloxUploadConfigured: defaultRoblox.configured,
     robloxOAuthConfigured: robloxOAuth.configured,
     linkedRobloxUsers: robloxOAuth.linkedCount(),
     corruptRobloxProfiles: robloxOAuth.corruptProfileCount(),
     configuredRobloxServers: guildConfigStore.size,
     corruptRobloxServerConfigs: guildConfigStore.corruptFiles,
+    uploadHistoryStorage: "ready",
+    corruptUploadHistoryFiles: uploadHistoryStore.corruptFiles,
     youtubeReady,
     youtubeToolVersion
   })

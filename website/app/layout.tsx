@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Codex Eclipse Audio',
+  title: 'Eclipse Audio',
   description:
     'A premium 24/7 landing page for the Roblox Audio Converter Discord bot.',
 };

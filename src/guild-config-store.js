@@ -64,6 +64,13 @@ function validateGuildId(guildId) {
   return value;
 }
 
+function normalizeOptionalDiscordId(value, field) {
+  const id = String(value || "").trim();
+  if (!id) return null;
+  if (!GUILD_ID.test(id)) throw new Error(`Invalid ${field}.`);
+  return id;
+}
+
 function publicConfig(config) {
   if (!config) return null;
   return {
@@ -72,6 +79,7 @@ function publicConfig(config) {
     apiKeyConfigured: Boolean(config.apiKey),
     apiKeyFingerprint: apiKeyFingerprint(config.apiKey),
     uploadRoleIds: [...(config.uploadRoleIds || [])],
+    auditChannelId: config.auditChannelId || null,
     updatedBy: config.updatedBy || null,
     updatedAt: config.updatedAt || null
   };
@@ -129,6 +137,7 @@ export class GuildConfigStore {
           ...config,
           apiKey,
           uploadRoleIds: normalizeUploadRoleIds(record.uploadRoleIds || []),
+          auditChannelId: normalizeOptionalDiscordId(record.auditChannelId, "audit channel ID"),
           updatedBy: record.updatedBy,
           updatedAt: record.updatedAt
         });
@@ -163,6 +172,7 @@ export class GuildConfigStore {
       ...normalizeCreatorConfig(config),
       apiKey,
       uploadRoleIds: normalizeUploadRoleIds(config.uploadRoleIds ?? existing?.uploadRoleIds ?? []),
+      auditChannelId: normalizeOptionalDiscordId(config.auditChannelId ?? existing?.auditChannelId, "audit channel ID"),
       updatedBy: String(config.updatedBy || ""),
       updatedAt: new Date().toISOString()
     };
@@ -173,6 +183,7 @@ export class GuildConfigStore {
       creatorId: saved.creatorId,
       apiKeyEncrypted: apiKey ? encryptSecret(this.key, id, apiKey) : null,
       uploadRoleIds: saved.uploadRoleIds,
+      auditChannelId: saved.auditChannelId,
       updatedBy: saved.updatedBy,
       updatedAt: saved.updatedAt
     };
@@ -194,6 +205,13 @@ export class GuildConfigStore {
     const existing = this.guilds.get(id);
     if (!existing) throw new Error("Set up this server's Roblox creator before configuring upload roles.");
     return this.set(id, { ...existing, uploadRoleIds, updatedBy });
+  }
+
+  async setAuditChannel(guildId, auditChannelId, updatedBy) {
+    const id = validateGuildId(guildId);
+    const existing = this.guilds.get(id);
+    if (!existing) throw new Error("Set up this server's Roblox creator before configuring an audit channel.");
+    return this.set(id, { ...existing, auditChannelId, updatedBy });
   }
 
   async delete(guildId) {

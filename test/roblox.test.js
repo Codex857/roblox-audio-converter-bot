@@ -107,7 +107,10 @@ test("asset polling retries a temporary Roblox failure", async () => {
         headers: { "content-type": "application/json" }
       });
     }
-    return new Response(JSON.stringify({ done: true, response: { assetId: "789" } }), {
+    return new Response(JSON.stringify({
+      done: true,
+      response: { assetId: "789", moderationResult: { moderationState: "MODERATION_STATE_APPROVED" } }
+    }), {
       status: 200,
       headers: { "content-type": "application/json" }
     });
@@ -115,7 +118,10 @@ test("asset polling retries a temporary Roblox failure", async () => {
 
   try {
     const uploader = createRobloxUploader({ apiKey: "secret", creatorType: "Group", creatorId: "123" });
-    assert.equal(await uploader.waitForAsset("operations/test", { attempts: 2, intervalMs: 0 }), "789");
+    assert.deepEqual(await uploader.waitForAssetResult("operations/test", { attempts: 2, intervalMs: 0 }), {
+      assetId: "789",
+      moderationState: "MODERATION_STATE_APPROVED"
+    });
     assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;

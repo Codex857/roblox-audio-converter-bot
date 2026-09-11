@@ -78,19 +78,39 @@ function rightsLabel() {
 function speedLabel() {
   return new LabelBuilder()
     .setLabel("Audio speed")
-    .setDescription("1x is normal; 1.5x or 2x speeds up without raising pitch")
+    .setDescription("Change tempo without raising or lowering pitch")
     .setStringSelectMenuComponent(
       new StringSelectMenuBuilder()
         .setCustomId("audio_speed")
         .setMinValues(1)
         .setMaxValues(1)
         .addOptions(
+          new StringSelectMenuOptionBuilder().setLabel("0.75x - Slower").setValue("0.75"),
           new StringSelectMenuOptionBuilder()
             .setLabel("1x - Normal")
             .setValue("1")
             .setDefault(true),
+          new StringSelectMenuOptionBuilder().setLabel("1.25x - Slightly faster").setValue("1.25"),
           new StringSelectMenuOptionBuilder().setLabel("1.5x - Faster").setValue("1.5"),
           new StringSelectMenuOptionBuilder().setLabel("2x - Double speed").setValue("2")
+        )
+    );
+}
+
+function presetLabel() {
+  return new LabelBuilder()
+    .setLabel("Audio style")
+    .setDescription("Preserve keeps the original bass, vocal, and dynamics")
+    .setStringSelectMenuComponent(
+      new StringSelectMenuBuilder()
+        .setCustomId("audio_preset")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(
+          new StringSelectMenuOptionBuilder().setLabel("Preserve Original").setValue("preserve").setDefault(true),
+          new StringSelectMenuOptionBuilder().setLabel("Balanced Loudness").setValue("balanced"),
+          new StringSelectMenuOptionBuilder().setLabel("Bass Boost").setValue("bass"),
+          new StringSelectMenuOptionBuilder().setLabel("Vocal Clarity").setValue("vocal")
         )
     );
 }
@@ -111,6 +131,7 @@ export function fileUploadModal() {
             .setRequired(true)
         ),
       speedLabel(),
+      presetLabel(),
       rightsLabel()
     );
 }
@@ -132,6 +153,7 @@ export function youtubeUploadModal() {
             .setRequired(true)
         ),
       speedLabel(),
+      presetLabel(),
       rightsLabel()
     );
 }
@@ -153,6 +175,7 @@ export function directAudioUploadModal() {
             .setRequired(true)
         ),
       speedLabel(),
+      presetLabel(),
       rightsLabel()
     );
 }

@@ -13,6 +13,7 @@ import {
   bitrateForQuality,
   convertAudio,
   inspectConvertedAudio,
+  normalizeAudioPreset,
   normalizeAudioSpeed,
   safeBaseName,
   validateAttachment
@@ -49,12 +50,22 @@ test("bitrateForQuality maps supported presets", () => {
 });
 
 test("speed options are normalized and included in the audio filter", () => {
+  assert.equal(normalizeAudioSpeed("0.75"), 0.75);
   assert.equal(normalizeAudioSpeed("1"), 1);
+  assert.equal(normalizeAudioSpeed("1.25"), 1.25);
   assert.equal(normalizeAudioSpeed("1.5"), 1.5);
   assert.equal(normalizeAudioSpeed("2"), 2);
-  assert.throws(() => normalizeAudioSpeed("1.25"), /Audio speed/);
+  assert.throws(() => normalizeAudioSpeed("1.75"), /Audio speed/);
   assert.match(audioFilterForOptions({ speed: 1.5, normalize: true }), /atempo=1\.5/);
   assert.doesNotMatch(audioFilterForOptions({ speed: 1, normalize: true }), /atempo=/);
+});
+
+test("audio presets preserve the mix or add focused EQ", () => {
+  assert.equal(normalizeAudioPreset(), "preserve");
+  assert.match(audioFilterForOptions({ preset: "bass" }), /bass=g=5/);
+  assert.match(audioFilterForOptions({ preset: "vocal" }), /equalizer=f=2500/);
+  assert.doesNotMatch(audioFilterForOptions({ preset: "preserve" }), /bass=|equalizer=/);
+  assert.throws(() => normalizeAudioPreset("destroy"), /Invalid audio preset/);
 });
 
 test("assetDisplayName keeps readable Unicode names", () => {

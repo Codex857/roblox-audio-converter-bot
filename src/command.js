@@ -1,13 +1,27 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { ChannelType, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
 function speedOption(option) {
   return option
     .setName("speed")
     .setDescription("Audio speed; 1x is normal")
     .addChoices(
+      { name: "0.75x - Slower", value: "0.75" },
       { name: "1x - Normal", value: "1" },
+      { name: "1.25x - Slightly faster", value: "1.25" },
       { name: "1.5x - Faster", value: "1.5" },
       { name: "2x - Double speed", value: "2" }
+    );
+}
+
+function presetOption(option) {
+  return option
+    .setName("preset")
+    .setDescription("Audio style; Preserve Original keeps the original mix")
+    .addChoices(
+      { name: "Preserve Original", value: "preserve" },
+      { name: "Balanced Loudness", value: "balanced" },
+      { name: "Bass Boost", value: "bass" },
+      { name: "Vocal Clarity", value: "vocal" }
     );
 }
 
@@ -32,7 +46,8 @@ export const robloxAudioCommand = new SlashCommandBuilder()
       .setName("normalize")
       .setDescription("Normalize loudness; leave off to preserve the original mix")
   )
-  .addStringOption(speedOption);
+  .addStringOption(speedOption)
+  .addStringOption(presetOption);
 
 export const robloxUploadCommand = new SlashCommandBuilder()
   .setName("roblox-upload")
@@ -61,7 +76,8 @@ export const robloxUploadCommand = new SlashCommandBuilder()
   .addStringOption((option) =>
     option.setName("description").setDescription("Asset description and license/source notes").setMaxLength(1000)
   )
-  .addStringOption(speedOption);
+  .addStringOption(speedOption)
+  .addStringOption(presetOption);
 
 export const robloxHelpCommand = new SlashCommandBuilder()
   .setName("roblox-help")
@@ -73,7 +89,8 @@ export const quickUploadCommand = new SlashCommandBuilder()
   .addAttachmentOption((option) =>
     option.setName("file").setDescription("Choose your audio file").setRequired(true)
   )
-  .addStringOption(speedOption);
+  .addStringOption(speedOption)
+  .addStringOption(presetOption);
 
 export const youtubeUploadCommand = new SlashCommandBuilder()
   .setName("yt")
@@ -87,11 +104,16 @@ export const youtubeUploadCommand = new SlashCommandBuilder()
       .setDescription("I own or have a license for this audio")
       .setRequired(true)
   )
-  .addStringOption(speedOption);
+  .addStringOption(speedOption)
+  .addStringOption(presetOption);
 
 export const menuCommand = new SlashCommandBuilder()
   .setName("menu")
   .setDescription("Open the easiest menu for audio, direct links, or YouTube");
+
+export const historyCommand = new SlashCommandBuilder()
+  .setName("history")
+  .setDescription("Show the latest Roblox audio uploads for this server");
 
 export const robloxAccountCommand = new SlashCommandBuilder()
   .setName("roblox-account")
@@ -145,11 +167,25 @@ export const robloxServerCommand = new SlashCommandBuilder()
     subcommand.setName("roles-clear").setDescription("Allow every server member to upload")
   )
   .addSubcommand((subcommand) =>
+    subcommand
+      .setName("audit-channel")
+      .setDescription("Send upload results to an audit log channel")
+      .addChannelOption((option) => option
+        .setName("channel")
+        .setDescription("Text channel for upload logs")
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(true))
+  )
+  .addSubcommand((subcommand) =>
+    subcommand.setName("audit-clear").setDescription("Disable the upload audit log")
+  )
+  .addSubcommand((subcommand) =>
     subcommand.setName("clear").setDescription("Clear this server's Roblox creator setup")
   );
 
 export const allCommands = [
   menuCommand,
+  historyCommand,
   robloxAccountCommand,
   robloxServerCommand,
   quickUploadCommand,
