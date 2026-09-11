@@ -46,9 +46,30 @@ export function mainMenuComponents() {
         .setCustomId("music-menu:help")
         .setLabel("How to Use")
         .setEmoji("❓")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("music-menu:check")
+        .setLabel("Check Audio")
+        .setEmoji("🔬")
         .setStyle(ButtonStyle.Secondary)
     )
   ];
+}
+
+export function audioCheckModal() {
+  return new ModalBuilder()
+    .setCustomId("music-menu:check-modal")
+    .setTitle("Audio Health Check")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Choose one audio file")
+        .setDescription("Read-only check; nothing is uploaded to Roblox")
+        .setFileUploadComponent(new FileUploadBuilder()
+          .setCustomId("check_audio_file")
+          .setMinValues(1)
+          .setMaxValues(1)
+          .setRequired(true))
+    );
 }
 
 export function aiMusicModal() {

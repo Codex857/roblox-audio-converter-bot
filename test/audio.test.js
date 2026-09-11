@@ -14,6 +14,7 @@ import {
   convertAudio,
   inspectConvertedAudio,
   analyzeAudioHealth,
+  generateWaveform,
   normalizeAudioPreset,
   normalizeAudioSpeed,
   normalizeAudioTrim,
@@ -119,6 +120,21 @@ test("audio health check reports technical measurements and a bounded score", as
     assert.ok(report.score >= 0 && report.score <= 100);
     assert.ok(Number.isFinite(report.meanVolume));
     assert.ok(Number.isFinite(report.maxVolume));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("waveform generator creates a valid PNG preview", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "waveform-test-"));
+  const input = join(directory, "input.wav");
+  const output = join(directory, "waveform.png");
+  try {
+    await execFileAsync(ffmpegPath, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=220:duration=0.2", input]);
+    await generateWaveform(ffmpegPath, input, output);
+    const { readFile } = await import("node:fs/promises");
+    const png = await readFile(output);
+    assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

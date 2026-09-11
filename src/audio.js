@@ -210,6 +210,14 @@ export async function analyzeAudioHealth(ffmpegPath, ffprobePath, inputPath) {
   };
 }
 
+export async function generateWaveform(ffmpegPath, inputPath, outputPath) {
+  await execFileAsync(ffmpegPath, [
+    "-hide_banner", "-loglevel", "error", "-y", "-i", inputPath,
+    "-filter_complex", "aformat=channel_layouts=mono,showwavespic=s=1200x320:colors=0x67e8f9",
+    "-frames:v", "1", outputPath
+  ], { timeout: 60_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true });
+}
+
 export async function convertAudio(ffmpegPath, inputPath, outputPath, options = {}) {
   const quality = options.quality || "standard";
   const normalize = options.normalize === true;

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   aiMusicModal,
+  audioCheckModal,
   directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
@@ -21,10 +22,19 @@ test("main menu offers file, direct link, YouTube, help and account buttons", ()
     ],
     [
       "music-menu:account",
-      "music-menu:help"
+      "music-menu:help",
+      "music-menu:check"
     ]
   ]);
   assert.equal(rows[0].components[0].label, "Start Upload");
+});
+
+test("audio check modal accepts exactly one file", () => {
+  const modal = audioCheckModal().toJSON();
+  assert.equal(modal.custom_id, "music-menu:check-modal");
+  assert.equal(modal.components[0].component.custom_id, "check_audio_file");
+  assert.equal(modal.components[0].component.min_values, 1);
+  assert.equal(modal.components[0].component.max_values, 1);
 });
 
 test("AI music modal keeps generation simple and requires originality confirmation", () => {

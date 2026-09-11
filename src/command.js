@@ -159,6 +159,17 @@ export const panelCommand = new SlashCommandBuilder()
   .setDescription("Post the permanent Eclipse Audio control panel")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
 
+export const luaSoundCommand = new SlashCommandBuilder()
+  .setName("lua-sound")
+  .setDescription("Generate a safe Roblox Studio audio script")
+  .addStringOption((option) => option.setName("asset_ids").setDescription("One or more Asset IDs separated by commas").setRequired(true).setMaxLength(500))
+  .addStringOption((option) => option.setName("template").setDescription("Roblox audio script type").setRequired(true).addChoices(
+    { name: "Single looping sound", value: "single" },
+    { name: "Playlist", value: "playlist" },
+    { name: "Random playlist", value: "random" },
+    { name: "Crossfade music", value: "crossfade" }
+  ));
+
 export const robloxAccountCommand = new SlashCommandBuilder()
   .setName("roblox-account")
   .setDescription("Set up or update this server's Roblox upload credentials");
@@ -233,6 +244,7 @@ export const allCommands = [
   aiStatusCommand,
   audioCheckCommand,
   panelCommand,
+  luaSoundCommand,
   historyCommand,
   robloxAccountCommand,
   robloxServerCommand,

@@ -26,6 +26,7 @@ import {
 } from "./guild-config-store.js";
 import {
   aiMusicModal,
+  audioCheckModal,
   directAudioUploadModal,
   fileUploadModal,
   mainMenuComponents,
@@ -41,6 +42,7 @@ import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./you
 import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js";
 import { createMusicGenerator } from "./music-generation.js";
 import { DailyUsageLimiter } from "./ai-usage.js";
+import { generateRobloxLua } from "./lua-generator.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
   analyzeAudioHealth,
@@ -49,6 +51,7 @@ import {
   downloadAttachment,
   inspectAudio,
   inspectConvertedAudio,
+  generateWaveform,
   normalizeAudioPreset,
   normalizeAudioSpeed,
   normalizeAudioTrim,
@@ -735,10 +738,12 @@ async function processAudioHealthJob({ interaction, healthCheck }) {
   try {
     workDir = await mkdtemp(join(tmpdir(), "eclipse-health-"));
     const inputPath = join(workDir, `${randomUUID()}${extname(healthCheck.name || ".audio")}`);
+    const waveformPath = join(workDir, "eclipse-waveform.png");
     await editStatus(interaction, "⏬ Downloading audio for a read-only health check...");
     await downloadAttachment(healthCheck, inputPath);
     await editStatus(interaction, "🔬 Measuring format, duration, volume and peak headroom...");
     const report = await analyzeAudioHealth(ffmpegPath, ffprobeStatic.path, inputPath);
+    await generateWaveform(ffmpegPath, inputPath, waveformPath);
     const issueLines = report.issues.length ? report.issues.map((item) => `• ${item}`) : ["• No major problem detected."];
     const recommendationLines = report.recommendations.length ? report.recommendations.map((item) => `• ${item}`) : ["• Ready for conversion/upload."];
     await interaction.editReply({
@@ -756,6 +761,7 @@ async function processAudioHealthJob({ interaction, healthCheck }) {
         ...recommendationLines,
         "This check does not upload anything to Roblox."
       ].join("\n").slice(0, 1950),
+      files: [{ attachment: waveformPath, name: "eclipse-waveform.png" }],
       allowedMentions: { parse: [] }
     });
   } finally {
@@ -1239,6 +1245,11 @@ async function handleMenuButton(interaction) {
     return true;
   }
 
+  if (interaction.customId === "music-menu:check") {
+    await interaction.showModal(audioCheckModal());
+    return true;
+  }
+
   if (interaction.customId === "music-menu:youtube-tips") {
     await interaction.reply({
       content: [
@@ -1280,6 +1291,17 @@ async function handleMenuButton(interaction) {
 }
 
 async function handleMenuModal(interaction) {
+  if (interaction.customId === "music-menu:check-modal") {
+    const attachment = [...interaction.fields.getUploadedFiles("check_audio_file", true).values()][0];
+    try { validateAttachment(attachment); }
+    catch (error) {
+      await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+      return true;
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await enqueueJob({ interaction, healthCheck: attachment });
+    return true;
+  }
   if (interaction.customId === "music-menu:ai-modal") {
     if (interaction.fields.getCheckbox("ai_rights_confirm") !== true) {
       await interaction.reply({ content: "❌ Confirm that your request is for original music.", flags: MessageFlags.Ephemeral });
@@ -1457,7 +1479,27 @@ async function handleInteraction(interaction) {
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["menu", "panel", "audio-check", "upload", "yt", "generate-music", "ai-status", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+  if (!["menu", "panel", "audio-check", "lua-sound", "upload", "yt", "generate-music", "ai-status", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "lua-sound") {
+    try {
+      const template = interaction.options.getString("template", true);
+      const lua = generateRobloxLua(interaction.options.getString("asset_ids", true), template);
+      await interaction.reply({
+        content: [
+          "🧩 **Roblox Studio script generated**",
+          "Download the file, review the Asset IDs, then place it in `ServerScriptService`.",
+          "Private audio must also have permission for the destination experience."
+        ].join("\n"),
+        files: [{ attachment: Buffer.from(lua, "utf8"), name: `eclipse-${template}.server.lua` }],
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
+    } catch (error) {
+      await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+    }
+    return;
+  }
 
   if (interaction.commandName === "panel") {
     if (!interaction.inGuild()) {
@@ -1468,7 +1510,8 @@ async function handleInteraction(interaction) {
       content: [
         "🎛️ **Eclipse Audio Control Panel**",
         "Convert, check, edit and upload licensed audio to Roblox.",
-        "Choose an action below. Only server admins can change the Roblox destination."
+        "Choose an action below. Use `/lua-sound` to generate ready-to-use Roblox Studio scripts.",
+        "Only server admins can change the Roblox destination."
       ].join("\n"),
       components: mainMenuComponents(),
       allowedMentions: { parse: [] }
@@ -1637,6 +1680,8 @@ async function handleInteraction(interaction) {
         "Fill the short form, tick the audio rights confirmation, then submit.",
         "",
         "The menu supports 1-5 files, one public audio file link, or one public YouTube video link.",
+        "Use **Check Audio** or `/audio-check` for a health score and waveform without uploading anything.",
+        "Use `/lua-sound` to generate a Roblox Studio sound, playlist, random playlist, or crossfade script.",
         "Use `/generate-music` to create an original AI game soundtrack, preview it, or upload it directly to Roblox.",
         "Choose speed `0.75x`, `1x`, `1.25x`, `1.5x`, or `2x`, an audio style, and optionally trim with `start-end` seconds (example: `30-90`).",
         "Then wait for the Asset ID, moderation status, JSON, and Lua.",

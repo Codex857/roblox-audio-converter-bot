@@ -71,6 +71,7 @@ For Roblox setup:
 - `/ai-status` - shows AI Music readiness and your remaining daily generations.
 - `/audio-check` - gives a read-only audio health score before upload.
 - `/panel` - posts a permanent button-based control panel (Manage Server permission required).
+- `/lua-sound` - generates safe Roblox Studio scripts for one sound, playlists, random playback, or crossfades.
 - `/roblox-help` - shows a private English help guide.
 - `/roblox-server status` - shows this Discord server's Roblox creator setup.
 - `/roblox-server set` - manually sets creator type and creator ID only.
@@ -94,6 +95,10 @@ Admins always retain upload access. If no upload roles are configured, every ser
 ## Free audio tools
 
 Use `/audio-check` to inspect codec, duration, file size, sample rate, channels, mean volume and peak headroom without uploading the file. The bot returns a 0-100 health score and practical recommendations.
+
+Every health report now includes a generated waveform PNG. The permanent panel also includes **Check Audio**, so regular users do not need to remember the slash command.
+
+Use `/lua-sound` with up to 20 Asset IDs to download a reviewed, dependency-free Luau script. Templates never use `loadstring`, HTTP downloads, or obfuscated code.
 
 Admins can use `/panel` once in a chosen channel to post the shared Eclipse Audio control panel. Its buttons continue working after bot restarts because they use stable component IDs.
 

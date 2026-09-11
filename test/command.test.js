@@ -64,6 +64,13 @@ test("audio check and permanent panel commands are registered", () => {
   assert.ok(panel.default_member_permissions);
 });
 
+test("Lua sound command exposes safe templates", () => {
+  const command = allCommands.map((item) => item.toJSON()).find((item) => item.name === "lua-sound");
+  assert.ok(command);
+  assert.deepEqual(command.options.map((option) => option.name), ["asset_ids", "template"]);
+  assert.deepEqual(command.options[1].choices.map((choice) => choice.value), ["single", "playlist", "random", "crossfade"]);
+});
+
 test("quick upload only asks for one required file", () => {
   const quick = allCommands.map((item) => item.toJSON()).find((command) => command.name === "upload");
   assert.ok(quick);
