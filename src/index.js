@@ -43,6 +43,7 @@ import { createMusicGenerator } from "./music-generation.js";
 import { DailyUsageLimiter } from "./ai-usage.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
+  analyzeAudioHealth,
   assetDisplayName,
   convertAudio,
   downloadAttachment,
@@ -191,7 +192,7 @@ void refreshYouTubeDownloader("startup")
   });
 
 function jobFileCount(job) {
-  return job.attachments?.length || (job.youtube || job.directAudio || job.musicGeneration || job.generatedUpload ? 1 : 0);
+  return job.attachments?.length || (job.youtube || job.directAudio || job.musicGeneration || job.generatedUpload || job.healthCheck ? 1 : 0);
 }
 
 function pendingFileCount() {
@@ -729,8 +730,42 @@ async function processGeneratedMusicUploadJob({ interaction, generatedUpload, up
   }
 }
 
+async function processAudioHealthJob({ interaction, healthCheck }) {
+  let workDir;
+  try {
+    workDir = await mkdtemp(join(tmpdir(), "eclipse-health-"));
+    const inputPath = join(workDir, `${randomUUID()}${extname(healthCheck.name || ".audio")}`);
+    await editStatus(interaction, "⏬ Downloading audio for a read-only health check...");
+    await downloadAttachment(healthCheck, inputPath);
+    await editStatus(interaction, "🔬 Measuring format, duration, volume and peak headroom...");
+    const report = await analyzeAudioHealth(ffmpegPath, ffprobeStatic.path, inputPath);
+    const issueLines = report.issues.length ? report.issues.map((item) => `• ${item}`) : ["• No major problem detected."];
+    const recommendationLines = report.recommendations.length ? report.recommendations.map((item) => `• ${item}`) : ["• Ready for conversion/upload."];
+    await interaction.editReply({
+      content: [
+        `🎛️ **Audio Health: ${report.score}/100 · ${report.grade}**`,
+        `File: **${safeDiscordText(healthCheck.name)}**`,
+        `Duration: ${(report.duration / 60).toFixed(2)} min · Size: ${(report.size / 1024 / 1024).toFixed(2)} MB`,
+        `Codec: ${safeDiscordText(report.codec)} · ${report.sampleRate} Hz · ${report.channels} channel(s)`,
+        `Volume: mean ${report.meanVolume ?? "n/a"} dB · peak ${report.maxVolume ?? "n/a"} dB`,
+        "",
+        "**Findings**",
+        ...issueLines,
+        "",
+        "**Recommended action**",
+        ...recommendationLines,
+        "This check does not upload anything to Roblox."
+      ].join("\n").slice(0, 1950),
+      allowedMentions: { parse: [] }
+    });
+  } finally {
+    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function processAudioJob(job) {
-  if (job.generatedUpload) await processGeneratedMusicUploadJob(job);
+  if (job.healthCheck) await processAudioHealthJob(job);
+  else if (job.generatedUpload) await processGeneratedMusicUploadJob(job);
   else if (job.musicGeneration) await processMusicGenerationJob(job);
   else if (job.youtube) await processYouTubeUploadJob(job);
   else if (job.directAudio) await processDirectAudioUploadJob(job);
@@ -1422,7 +1457,36 @@ async function handleInteraction(interaction) {
     return;
   }
   if (!interaction.isChatInputCommand()) return;
-  if (!["menu", "upload", "yt", "generate-music", "ai-status", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+  if (!["menu", "panel", "audio-check", "upload", "yt", "generate-music", "ai-status", "roblox-audio", "roblox-upload", "roblox-help", "roblox-account", "roblox-server", "history"].includes(interaction.commandName)) return;
+
+  if (interaction.commandName === "panel") {
+    if (!interaction.inGuild()) {
+      await interaction.reply({ content: "❌ The permanent panel can only be posted inside a server.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    await interaction.reply({
+      content: [
+        "🎛️ **Eclipse Audio Control Panel**",
+        "Convert, check, edit and upload licensed audio to Roblox.",
+        "Choose an action below. Only server admins can change the Roblox destination."
+      ].join("\n"),
+      components: mainMenuComponents(),
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
+
+  if (interaction.commandName === "audio-check") {
+    const attachment = interaction.options.getAttachment("file", true);
+    try { validateAttachment(attachment); }
+    catch (error) {
+      await interaction.reply({ content: `❌ ${errorMessage(error)}`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await enqueueJob({ interaction, healthCheck: attachment });
+    return;
+  }
 
   if (interaction.commandName === "ai-status") {
     const usage = aiUsageLimiter.status(interaction.user.id);

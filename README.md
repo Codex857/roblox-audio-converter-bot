@@ -69,6 +69,8 @@ For Roblox setup:
 - `/history` - shows the latest 10 upload results and Asset IDs for this server.
 - `/generate-music` - generates an original AI game soundtrack and optionally uploads it to Roblox.
 - `/ai-status` - shows AI Music readiness and your remaining daily generations.
+- `/audio-check` - gives a read-only audio health score before upload.
+- `/panel` - posts a permanent button-based control panel (Manage Server permission required).
 - `/roblox-help` - shows a private English help guide.
 - `/roblox-server status` - shows this Discord server's Roblox creator setup.
 - `/roblox-server set` - manually sets creator type and creator ID only.
@@ -88,6 +90,12 @@ The easiest path for normal users is `/menu` > **Start Upload**, **Paste Link**,
 Admins always retain upload access. If no upload roles are configured, every server member may upload.
 
 ## Upload options
+
+## Free audio tools
+
+Use `/audio-check` to inspect codec, duration, file size, sample rate, channels, mean volume and peak headroom without uploading the file. The bot returns a 0-100 health score and practical recommendations.
+
+Admins can use `/panel` once in a chosen channel to post the shared Eclipse Audio control panel. Its buttons continue working after bot restarts because they use stable component IDs.
 
 ## AI music generation (Discord MVP)
 

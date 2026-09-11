@@ -53,6 +53,17 @@ test("AI status command is available without options", () => {
   assert.deepEqual(command.options || [], []);
 });
 
+test("audio check and permanent panel commands are registered", () => {
+  const commands = allCommands.map((item) => item.toJSON());
+  const check = commands.find((item) => item.name === "audio-check");
+  const panel = commands.find((item) => item.name === "panel");
+  assert.ok(check);
+  assert.deepEqual(check.options.map((option) => ({ name: option.name, required: option.required })), [{ name: "file", required: true }]);
+  assert.ok(panel);
+  assert.deepEqual(panel.options || [], []);
+  assert.ok(panel.default_member_permissions);
+});
+
 test("quick upload only asks for one required file", () => {
   const quick = allCommands.map((item) => item.toJSON()).find((command) => command.name === "upload");
   assert.ok(quick);

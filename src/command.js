@@ -149,6 +149,16 @@ export const aiStatusCommand = new SlashCommandBuilder()
   .setName("ai-status")
   .setDescription("Check AI Music readiness and your remaining daily generations");
 
+export const audioCheckCommand = new SlashCommandBuilder()
+  .setName("audio-check")
+  .setDescription("Check audio quality and Roblox compatibility before uploading")
+  .addAttachmentOption((option) => option.setName("file").setDescription("Audio file to analyze").setRequired(true));
+
+export const panelCommand = new SlashCommandBuilder()
+  .setName("panel")
+  .setDescription("Post the permanent Eclipse Audio control panel")
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
+
 export const robloxAccountCommand = new SlashCommandBuilder()
   .setName("roblox-account")
   .setDescription("Set up or update this server's Roblox upload credentials");
@@ -221,6 +231,8 @@ export const allCommands = [
   menuCommand,
   generateMusicCommand,
   aiStatusCommand,
+  audioCheckCommand,
+  panelCommand,
   historyCommand,
   robloxAccountCommand,
   robloxServerCommand,

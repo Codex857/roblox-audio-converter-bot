@@ -13,6 +13,7 @@ import {
   bitrateForQuality,
   convertAudio,
   inspectConvertedAudio,
+  analyzeAudioHealth,
   normalizeAudioPreset,
   normalizeAudioSpeed,
   normalizeAudioTrim,
@@ -100,5 +101,25 @@ test("converted output is verified as Roblox-compatible OGG", async () => {
     assert.ok(info.size > 0);
   } finally {
     await rm(workDir, { recursive: true, force: true });
+  }
+});
+
+test("audio health check reports technical measurements and a bounded score", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "audio-health-test-"));
+  const input = join(directory, "healthy.wav");
+  try {
+    await execFileAsync(ffmpegPath, [
+      "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.2",
+      "-ar", "44100", "-ac", "2", input
+    ]);
+    const report = await analyzeAudioHealth(ffmpegPath, ffprobeStatic.path, input);
+    assert.equal(report.codec, "pcm_s16le");
+    assert.equal(report.sampleRate, 44100);
+    assert.equal(report.channels, 2);
+    assert.ok(report.score >= 0 && report.score <= 100);
+    assert.ok(Number.isFinite(report.meanVolume));
+    assert.ok(Number.isFinite(report.maxVolume));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });

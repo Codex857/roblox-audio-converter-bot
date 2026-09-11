@@ -164,6 +164,52 @@ export async function inspectConvertedAudio(ffprobePath, outputPath) {
   return { duration, size, sampleRate, channels, codec: stream.codec_name };
 }
 
+export async function analyzeAudioHealth(ffmpegPath, ffprobePath, inputPath) {
+  const { stdout } = await execFileAsync(ffprobePath, [
+    "-v", "error", "-select_streams", "a:0",
+    "-show_entries", "stream=codec_name,sample_rate,channels,bit_rate:format=duration,size,bit_rate",
+    "-of", "json", inputPath
+  ], { timeout: 30_000, maxBuffer: 1024 * 1024, windowsHide: true });
+  const probe = JSON.parse(stdout);
+  const stream = probe.streams?.[0];
+  if (!stream) throw new Error("No readable audio stream was found.");
+  const duration = Number(probe.format?.duration);
+  const size = Number(probe.format?.size);
+  const sampleRate = Number(stream.sample_rate);
+  const channels = Number(stream.channels);
+  if (![duration, size, sampleRate, channels].every(Number.isFinite)) throw new Error("Audio metadata is incomplete or invalid.");
+
+  const { stderr } = await execFileAsync(ffmpegPath, [
+    "-hide_banner", "-nostats", "-i", inputPath, "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"
+  ], { timeout: 3 * 60_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true });
+  const meanVolume = Number(/mean_volume:\s*(-?[\d.]+) dB/i.exec(stderr)?.[1]);
+  const maxVolume = Number(/max_volume:\s*(-?[\d.]+) dB/i.exec(stderr)?.[1]);
+  let score = 100;
+  const issues = [];
+  const recommendations = [];
+
+  if (duration >= ROBLOX_MAX_SECONDS) { score -= 30; issues.push("Duration reaches/exceeds Roblox's 7-minute limit."); recommendations.push("Trim the audio or increase speed."); }
+  if (size >= ROBLOX_MAX_BYTES) { score -= 25; issues.push("File reaches/exceeds Roblox's 20 MB limit."); recommendations.push("Use the bot's OGG conversion."); }
+  if (sampleRate > 48_000) { score -= 10; issues.push("Sample rate exceeds 48 kHz."); recommendations.push("Resample to 48 kHz."); }
+  if (![1, 2].includes(channels)) { score -= 5; issues.push(`${channels}-channel audio will be converted to stereo.`); }
+  if (Number.isFinite(maxVolume) && maxVolume >= -0.1) { score -= 20; issues.push("Peak level is at 0 dB and may be clipping."); recommendations.push("Apply peak limiting or normalization."); }
+  else if (Number.isFinite(maxVolume) && maxVolume > -1) { score -= 8; issues.push("Very little peak headroom remains."); }
+  if (Number.isFinite(meanVolume) && meanVolume < -32) { score -= 12; issues.push("Average volume is very quiet."); recommendations.push("Use Balanced Loudness."); }
+  if (Number.isFinite(meanVolume) && meanVolume > -10) { score -= 8; issues.push("Average volume is unusually loud."); recommendations.push("Use Balanced Loudness to reduce listener fatigue."); }
+  score = Math.max(0, Math.min(100, score));
+  return {
+    score,
+    grade: score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 55 ? "Needs attention" : "Poor",
+    duration, size, sampleRate, channels,
+    codec: String(stream.codec_name || "unknown"),
+    bitRate: Number(stream.bit_rate || probe.format?.bit_rate) || null,
+    meanVolume: Number.isFinite(meanVolume) ? meanVolume : null,
+    maxVolume: Number.isFinite(maxVolume) ? maxVolume : null,
+    issues,
+    recommendations: [...new Set(recommendations)]
+  };
+}
+
 export async function convertAudio(ffmpegPath, inputPath, outputPath, options = {}) {
   const quality = options.quality || "standard";
   const normalize = options.normalize === true;
