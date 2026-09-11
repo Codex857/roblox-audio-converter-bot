@@ -34,6 +34,18 @@ export function normalizeAudioPreset(value = "preserve") {
   return preset;
 }
 
+export function normalizeAudioTrim(value) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const match = /^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/.exec(text);
+  if (!match) throw new Error("Trim must use start-end seconds, for example 30-90.");
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  if (end <= start) throw new Error("Trim end must be greater than trim start.");
+  if (end - start > ROBLOX_MAX_SECONDS * 2) throw new Error("The selected trim range is too long.");
+  return { start, end, duration: end - start };
+}
+
 export function audioFilterForOptions(options = {}) {
   const speed = normalizeAudioSpeed(options.speed ?? 1);
   const preset = normalizeAudioPreset(options.preset);
@@ -109,11 +121,14 @@ export async function inspectAudio(ffprobePath, inputPath, options = {}) {
     throw new Error("Invalid audio, or the duration could not be read.");
   }
   const speed = normalizeAudioSpeed(options.speed ?? 1);
-  if (duration / speed > ROBLOX_MAX_SECONDS) {
+  const trim = normalizeAudioTrim(options.trim);
+  if (trim && trim.start >= duration) throw new Error("Trim start is after the end of the audio.");
+  const selectedDuration = trim ? Math.min(duration, trim.end) - trim.start : duration;
+  if (selectedDuration / speed > ROBLOX_MAX_SECONDS) {
     throw new Error("Audio is still over Roblox's 7-minute limit after the selected speed.");
   }
 
-  return { duration };
+  return { duration, selectedDuration, trim };
 }
 
 export async function inspectConvertedAudio(ffprobePath, outputPath) {
@@ -153,11 +168,14 @@ export async function convertAudio(ffmpegPath, inputPath, outputPath, options = 
   const quality = options.quality || "standard";
   const normalize = options.normalize === true;
   const bitrate = bitrateForQuality(quality);
+  const trim = normalizeAudioTrim(options.trim);
   // Preserve mode only resamples and catches peaks. Loudness normalization is
   // opt-in because it deliberately changes the dynamics of the original mix.
   const audioFilter = audioFilterForOptions({ normalize, speed: options.speed, preset: options.preset });
   const args = [
-    "-hide_banner", "-loglevel", "error", "-y", "-i", inputPath,
+    "-hide_banner", "-loglevel", "error", "-y",
+    ...(trim ? ["-ss", String(trim.start), "-t", String(trim.duration)] : []),
+    "-i", inputPath,
     "-map", "0:a:0", "-vn", "-sn", "-dn",
     "-af", audioFilter,
     "-ar", "48000", "-ac", "2", "-c:a", "libvorbis", "-b:a", bitrate,

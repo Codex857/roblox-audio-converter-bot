@@ -15,6 +15,7 @@ import {
   inspectConvertedAudio,
   normalizeAudioPreset,
   normalizeAudioSpeed,
+  normalizeAudioTrim,
   safeBaseName,
   validateAttachment
 } from "../src/audio.js";
@@ -68,6 +69,13 @@ test("audio presets preserve the mix or add focused EQ", () => {
   assert.throws(() => normalizeAudioPreset("destroy"), /Invalid audio preset/);
 });
 
+test("audio trim accepts a safe start-end range", () => {
+  assert.deepEqual(normalizeAudioTrim("30-90"), { start: 30, end: 90, duration: 60 });
+  assert.equal(normalizeAudioTrim(""), null);
+  assert.throws(() => normalizeAudioTrim("90-30"), /greater than/);
+  assert.throws(() => normalizeAudioTrim("hello"), /start-end seconds/);
+});
+
 test("assetDisplayName keeps readable Unicode names", () => {
   assert.equal(assetDisplayName("Lagu_Baru-Final.mp3"), "Lagu Baru Final");
   assert.equal(assetDisplayName("音乐_akhir.ogg"), "音乐 akhir");
@@ -84,7 +92,7 @@ test("converted output is verified as Roblox-compatible OGG", async () => {
       "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.25",
       "-ar", "44100", "-ac", "1", input
     ]);
-    await convertAudio(ffmpegPath, input, output, { quality: "high", normalize: true, speed: 2 });
+    await convertAudio(ffmpegPath, input, output, { quality: "high", normalize: true, speed: 2, trim: "0.05-0.20" });
     const info = await inspectConvertedAudio(ffprobeStatic.path, output);
     assert.equal(info.codec, "vorbis");
     assert.equal(info.sampleRate, 48000);

@@ -25,6 +25,13 @@ function presetOption(option) {
     );
 }
 
+function trimOption(option) {
+  return option
+    .setName("trim")
+    .setDescription("Optional start-end seconds, for example 30-90")
+    .setMaxLength(30);
+}
+
 export const robloxAudioCommand = new SlashCommandBuilder()
   .setName("roblox-audio")
   .setDescription("Convert owned or licensed audio to a Roblox-ready OGG file")
@@ -47,7 +54,8 @@ export const robloxAudioCommand = new SlashCommandBuilder()
       .setDescription("Normalize loudness; leave off to preserve the original mix")
   )
   .addStringOption(speedOption)
-  .addStringOption(presetOption);
+  .addStringOption(presetOption)
+  .addStringOption(trimOption);
 
 export const robloxUploadCommand = new SlashCommandBuilder()
   .setName("roblox-upload")
@@ -77,7 +85,8 @@ export const robloxUploadCommand = new SlashCommandBuilder()
     option.setName("description").setDescription("Asset description and license/source notes").setMaxLength(1000)
   )
   .addStringOption(speedOption)
-  .addStringOption(presetOption);
+  .addStringOption(presetOption)
+  .addStringOption(trimOption);
 
 export const robloxHelpCommand = new SlashCommandBuilder()
   .setName("roblox-help")
@@ -90,7 +99,8 @@ export const quickUploadCommand = new SlashCommandBuilder()
     option.setName("file").setDescription("Choose your audio file").setRequired(true)
   )
   .addStringOption(speedOption)
-  .addStringOption(presetOption);
+  .addStringOption(presetOption)
+  .addStringOption(trimOption);
 
 export const youtubeUploadCommand = new SlashCommandBuilder()
   .setName("yt")
@@ -105,7 +115,8 @@ export const youtubeUploadCommand = new SlashCommandBuilder()
       .setRequired(true)
   )
   .addStringOption(speedOption)
-  .addStringOption(presetOption);
+  .addStringOption(presetOption)
+  .addStringOption(trimOption);
 
 export const menuCommand = new SlashCommandBuilder()
   .setName("menu")

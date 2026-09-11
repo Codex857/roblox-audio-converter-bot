@@ -34,8 +34,9 @@ test("direct audio modal contains link, speed, preset and rights confirmation", 
   assert.equal(modal.components[1].component.custom_id, "audio_speed");
   assert.deepEqual(modal.components[1].component.options.map((option) => option.value), ["0.75", "1", "1.25", "1.5", "2"]);
   assert.equal(modal.components[2].component.custom_id, "audio_preset");
-  assert.equal(modal.components[3].component.type, 23);
-  assert.equal(modal.components[3].component.custom_id, "rights_confirm");
+  assert.equal(modal.components[3].component.custom_id, "audio_trim");
+  assert.equal(modal.components[4].component.type, 23);
+  assert.equal(modal.components[4].component.custom_id, "rights_confirm");
 });
 
 test("blocked YouTube flow offers an immediate file upload fallback", () => {
@@ -58,8 +59,9 @@ test("file modal accepts up to five files and requires speed, preset and rights 
   assert.equal(modal.components[1].component.type, 3);
   assert.equal(modal.components[1].component.custom_id, "audio_speed");
   assert.equal(modal.components[2].component.custom_id, "audio_preset");
-  assert.equal(modal.components[3].component.type, 23);
-  assert.equal(modal.components[3].component.custom_id, "rights_confirm");
+  assert.equal(modal.components[3].component.custom_id, "audio_trim");
+  assert.equal(modal.components[4].component.type, 23);
+  assert.equal(modal.components[4].component.custom_id, "rights_confirm");
 });
 
 test("YouTube modal contains link, speed, preset and rights confirmation", () => {
@@ -70,8 +72,9 @@ test("YouTube modal contains link, speed, preset and rights confirmation", () =>
   assert.equal(modal.components[1].component.type, 3);
   assert.equal(modal.components[1].component.custom_id, "audio_speed");
   assert.equal(modal.components[2].component.custom_id, "audio_preset");
-  assert.equal(modal.components[3].component.type, 23);
-  assert.equal(modal.components[3].component.custom_id, "rights_confirm");
+  assert.equal(modal.components[3].component.custom_id, "audio_trim");
+  assert.equal(modal.components[4].component.type, 23);
+  assert.equal(modal.components[4].component.custom_id, "rights_confirm");
 });
 
 test("Roblox server setup modal asks for creator type and ID", () => {

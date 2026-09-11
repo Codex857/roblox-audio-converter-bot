@@ -44,7 +44,8 @@ test("quick upload only asks for one required file", () => {
   assert.deepEqual(quick.options.map((option) => ({ name: option.name, required: option.required })), [
     { name: "file", required: true },
     { name: "speed", required: false },
-    { name: "preset", required: false }
+    { name: "preset", required: false },
+    { name: "trim", required: false }
   ]);
 });
 
@@ -55,7 +56,8 @@ test("YouTube upload asks once for the link and rights confirmation", () => {
     { name: "link", required: true },
     { name: "rights_confirm", required: true },
     { name: "speed", required: false },
-    { name: "preset", required: false }
+    { name: "preset", required: false },
+    { name: "trim", required: false }
   ]);
 });
 
@@ -84,5 +86,6 @@ test("upload commands expose supported speed choices", () => {
     assert.deepEqual(speed.choices.map((choice) => choice.value), ["0.75", "1", "1.25", "1.5", "2"]);
     const preset = command.options.find((option) => option.name === "preset");
     assert.deepEqual(preset.choices.map((choice) => choice.value), ["preserve", "balanced", "bass", "vocal"]);
+    assert.ok(command.options.find((option) => option.name === "trim"));
   }
 });

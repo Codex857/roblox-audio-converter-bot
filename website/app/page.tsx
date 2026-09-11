@@ -24,6 +24,8 @@ const stats = [
   ['OGG', 'Roblox-ready output'],
 ];
 
+const discordInvite = 'https://discord.com/oauth2/authorize?client_id=1543225545767129178&scope=bot%20applications.commands&permissions=117760';
+
 type BotStatus = {
   ok: boolean;
   version?: string;
@@ -105,8 +107,8 @@ export default async function Home() {
           <a className="transition hover:text-white" href="#workflow">Workflow</a>
           <a className="transition hover:text-white" href="#deploy">Deploy</a>
         </nav>
-        <a href="#deploy" className="rounded-full border border-white/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#050714] shadow-[0_0_40px_rgba(255,255,255,0.18)] transition hover:scale-[1.02]">
-          Launch 24/7
+        <a href={discordInvite} className="rounded-full border border-white/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#050714] shadow-[0_0_40px_rgba(255,255,255,0.18)] transition hover:scale-[1.02]">
+          Add to Discord
         </a>
       </header>
 
@@ -123,8 +125,8 @@ export default async function Home() {
             A premium Discord bot for creator teams: upload files, paste public audio links, process YouTube when allowed, convert to Roblox-ready OGG, and return clean Asset IDs.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <a href="#workflow" className="group inline-flex items-center justify-center gap-3 rounded-full bg-cyan-300 px-6 py-4 font-semibold text-slate-950 shadow-[0_0_52px_rgba(103,232,249,0.35)] transition hover:bg-white">
-              See the flow
+            <a href={discordInvite} className="group inline-flex items-center justify-center gap-3 rounded-full bg-cyan-300 px-6 py-4 font-semibold text-slate-950 shadow-[0_0_52px_rgba(103,232,249,0.35)] transition hover:bg-white">
+              Add bot to Discord
               <Play className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </a>
             <a href="#features" className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/8 px-6 py-4 font-semibold text-white backdrop-blur transition hover:bg-white/14">

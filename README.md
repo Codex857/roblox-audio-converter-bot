@@ -125,6 +125,12 @@ Audio style choices:
 - `Bass Boost` - applies a controlled low-frequency boost.
 - `Vocal Clarity` - applies a controlled presence-frequency boost.
 
+Optional trim:
+
+- Enter `start-end` in seconds, such as `30-90`, to upload only that part of the audio.
+- Leave it empty to process the complete audio.
+- The final duration after trim and speed must remain under Roblox's 7-minute limit.
+
 ## Environment variables
 
 Required for Discord:

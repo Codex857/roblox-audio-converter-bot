@@ -115,6 +115,20 @@ function presetLabel() {
     );
 }
 
+function trimLabel() {
+  return new LabelBuilder()
+    .setLabel("Trim (optional)")
+    .setDescription("Enter start-end seconds, for example 30-90")
+    .setTextInputComponent(
+      new TextInputBuilder()
+        .setCustomId("audio_trim")
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("Leave empty for the full audio")
+        .setMaxLength(30)
+        .setRequired(false)
+    );
+}
+
 export function fileUploadModal() {
   return new ModalBuilder()
     .setCustomId("music-menu:file-modal")
@@ -132,6 +146,7 @@ export function fileUploadModal() {
         ),
       speedLabel(),
       presetLabel(),
+      trimLabel(),
       rightsLabel()
     );
 }
@@ -154,6 +169,7 @@ export function youtubeUploadModal() {
         ),
       speedLabel(),
       presetLabel(),
+      trimLabel(),
       rightsLabel()
     );
 }
@@ -176,6 +192,7 @@ export function directAudioUploadModal() {
         ),
       speedLabel(),
       presetLabel(),
+      trimLabel(),
       rightsLabel()
     );
 }
