@@ -45,34 +45,86 @@ function baseArgs() {
     "--no-playlist",
     "--no-warnings",
     "--no-progress",
-    "--extractor-retries", "3",
-    "--retry-sleep", "extractor:1",
+    "--extractor-retries", "0",
     "--js-runtimes", "node"
   ];
 }
 
 export function friendlyYouTubeError(error) {
+  return classifyYouTubeError(error).message;
+}
+
+export function classifyYouTubeError(error) {
   const detail = String(error?.stderr || error?.stdout || error?.message || "");
+  const result = (code, message) => ({ code, message });
+  if (/429|too many requests|This content isn.t available, try again later/i.test(detail)) {
+    return result("RATE_LIMIT", "YouTube rate-limited this server. Please wait before trying again.");
+  }
+  if (/sign in to confirm (?:you.re|you are) not a bot|confirm you.re not a bot/i.test(detail)) {
+    return result("BOT_BLOCK", "YouTube blocked this cloud server request with a bot verification challenge.");
+  }
+  if (/confirm your age|age.restricted|inappropriate for some users/i.test(detail)) {
+    return result("AGE_RESTRICTED", "This YouTube video requires age verification. Upload your original audio file instead.");
+  }
+  if (/private video|members.only|video unavailable/i.test(detail)) {
+    return result("UNAVAILABLE", "The YouTube video is not publicly available.");
+  }
+  if (/sign in|login required|cookies/i.test(detail)) {
+    return result("LOGIN_REQUIRED", "This YouTube request requires login. The bot does not accept account cookies.");
+  }
+  if (/403|forbidden/i.test(detail)) {
+    return result("ACCESS_DENIED", "YouTube denied access (403). This alone does not confirm an IP block.");
+  }
   if (error?.code === "ENOENT") {
-    return "The YouTube downloader is not installed on the server.";
-  }
-  if (/sign in to confirm|cookies/i.test(detail)) {
-    return "YouTube is asking for login or blocking the cloud server address.";
-  }
-  if (/private video|members-only|video unavailable/i.test(detail)) {
-    return "The YouTube video is not publicly available.";
+    return result("TOOL_MISSING", "The YouTube downloader is not installed on the server.");
   }
   if (/copyright|drm|encrypted/i.test(detail)) {
-    return "This audio is protected and cannot be downloaded by the bot.";
+    return result("PROTECTED", "This audio is protected and cannot be downloaded by the bot.");
   }
   if (/max-filesize|larger than|max filesize/i.test(detail)) {
-    return "The YouTube audio is too large for the bot to process.";
+    return result("TOO_LARGE", "The YouTube audio is too large for the bot to process.");
   }
-  if (/timed out|timeout/i.test(detail)) {
-    return "The YouTube connection timed out. Try again shortly.";
+  if (error?.killed || /timed out|timeout/i.test(detail)) {
+    return result("TIMEOUT", "The YouTube connection timed out. Try again shortly.");
   }
-  return "Failed to fetch audio from YouTube. Make sure the video is public and the link is still active.";
+  return result("DOWNLOAD_FAILED", "Failed to fetch audio from YouTube. Make sure the video is public and the link is still active.");
 }
+
+export class YouTubeError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "YouTubeError";
+    this.code = code;
+  }
+}
+
+// Shared by YouTube jobs only. Do not delay file or direct-link uploads.
+export function createYouTubeGuard({ now = Date.now } = {}) {
+  let until = 0;
+  let lastErrorCode = null;
+  return {
+    status: () => ({ cooldownSeconds: Math.max(0, Math.ceil((until - now()) / 1000)), lastErrorCode }),
+    async run(task) {
+      if (now() < until) {
+        throw new YouTubeError("COOLDOWN", `YouTube requests are paused. Try again in ${Math.ceil((until - now()) / 1000)} seconds, or upload your original audio file now.`);
+      }
+      until = now() + 10_000;
+      try {
+        const value = await task();
+        lastErrorCode = null;
+        return value;
+      } catch (error) {
+        lastErrorCode = error instanceof YouTubeError ? error.code : "DOWNLOAD_FAILED";
+        const delay = { RATE_LIMIT: 15 * 60_000, BOT_BLOCK: 15 * 60_000, ACCESS_DENIED: 60_000 }[lastErrorCode] || 10_000;
+        until = Math.max(until, now() + delay);
+        throw error;
+      }
+    }
+  };
+}
+
+const youtubeGuard = createYouTubeGuard();
+export const youtubeRequestStatus = () => youtubeGuard.status();
 
 async function runYtDlp(ytDlpPath, args, options = {}) {
   try {
@@ -82,7 +134,8 @@ async function runYtDlp(ytDlpPath, args, options = {}) {
       windowsHide: true
     });
   } catch (error) {
-    throw new Error(friendlyYouTubeError(error));
+    const classified = classifyYouTubeError(error);
+    throw new YouTubeError(classified.code, classified.message);
   }
 }
 
@@ -93,7 +146,12 @@ export async function checkYouTubeTool(ytDlpPath) {
   return version;
 }
 
-export async function downloadYouTubeMp3({ ytDlpPath, ffmpegPath, url, outputPath }) {
+export async function downloadYouTubeMp3(options) {
+  normalizeYouTubeUrl(options.url);
+  return youtubeGuard.run(() => downloadYouTubeMp3Unchecked(options));
+}
+
+async function downloadYouTubeMp3Unchecked({ ytDlpPath, ffmpegPath, url, outputPath }) {
   const normalizedUrl = normalizeYouTubeUrl(url);
   const { stdout } = await runYtDlp(ytDlpPath, [
     ...baseArgs(),
@@ -128,8 +186,8 @@ export async function downloadYouTubeMp3({ ytDlpPath, ffmpegPath, url, outputPat
     "--ffmpeg-location", ffmpegPath,
     "--max-filesize", "25M",
     "--socket-timeout", "20",
-    "--retries", "3",
-    "--fragment-retries", "3",
+    "--retries", "0",
+    "--fragment-retries", "0",
     "--output", outputTemplate,
     "--",
     normalizedUrl

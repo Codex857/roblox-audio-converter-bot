@@ -236,7 +236,15 @@ If YouTube blocks the Railway/cloud server, the bot will not ask for login. It w
 - **Paste Direct Link** - paste a public direct audio file link from a supported host.
 - **YouTube Tips** - shows safe troubleshooting advice inside Discord.
 
-Common open-source Discord music bots use the same practical stack: `yt-dlp` plus FFmpeg. Several projects also note that cloud/datacenter IPs may be blocked by YouTube, so the reliable production options are a manual/direct-link fallback or running the bot on a trusted home/server IP.
+YouTube failures are classified separately: bot challenge, rate limit, access denied (403), age verification, login required, unavailable video, timeout, and downloader failure. Raw upstream error text is not sent to Discord or logged.
+
+The bot does not refresh/restart and immediately retry a blocked download. Rate limits and bot challenges pause YouTube requests for 15 minutes; access denied pauses them for 1 minute. Other attempts are spaced at least 10 seconds apart. During a pause, new YouTube jobs receive a countdown without contacting YouTube; file and direct-link uploads remain available. Jobs are not automatically resumed. These guards are process-local and reset on restart; run a single bot replica. Restarting is not an unblock strategy.
+
+The health endpoint retains `youtubeReady` for compatibility, meaning only that the downloader version check succeeded. `youtubeToolInstalled` makes this explicit, `youtubeAccessVerified` remains false (no live access probe), and `youtubeRequests` reports cooldown seconds and the last classified failure. These fields do not prove a particular video is downloadable.
+
+No hosting provider or downloader can guarantee YouTube access. Use your owned/licensed original file or an authorized direct audio URL when YouTube is unavailable. A saved link-to-original-file library is not implemented in this release.
+
+Upstream references: [yt-dlp extractor guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors) and [PO Token guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide). Account cookies and third-party token providers are not enabled by this bot.
 
 ## Deploy 24/7 on Railway
 

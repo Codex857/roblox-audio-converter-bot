@@ -39,7 +39,7 @@ import { startServer } from "./server.js";
 import { buildUploadExports } from "./upload-results.js";
 import { CooldownGate, progressBar } from "./queue-policy.js";
 import { UploadHistoryStore } from "./upload-history-store.js";
-import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl } from "./youtube.js";
+import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl, YouTubeError, youtubeRequestStatus } from "./youtube.js";
 import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js";
 import { createMusicGenerator } from "./music-generation.js";
 import { DailyUsageLimiter } from "./ai-usage.js";
@@ -642,26 +642,15 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
     await replyWithUploadResults(interaction, [{ index: 1, name: displayName, ...uploaded }], "youtube");
   } catch (error) {
     const message = errorMessage(error);
-    if (/YouTube is asking for login|blocking the cloud server address/i.test(message)) {
-      if (!youtube.retriedAfterRefresh) {
-        await editStatus(interaction, "♻️ YouTube blocked the first attempt. Refreshing the YouTube downloader and retrying once...");
-        try {
-          await refreshYouTubeDownloader("YouTube block");
-          return processYouTubeUploadJob({
-            interaction,
-            youtube: { ...youtube, retriedAfterRefresh: true },
-            uploader
-          });
-        } catch (refreshError) {
-          console.warn("YouTube downloader refresh did not fix the block:", errorMessage(refreshError));
-        }
-      }
+    if (error instanceof YouTubeError) {
+      console.warn(JSON.stringify({ event: "youtube_request_failed", code: error.code, ...youtubeRequestStatus() }));
       await interaction.editReply({
         content: [
-          "⚠️ **YouTube blocked the cloud server request.**",
-          youtube.retriedAfterRefresh
-            ? "The bot refreshed the YouTube downloader and retried once, but YouTube still blocked the server."
-            : "The bot could not refresh the YouTube downloader enough to clear the block.",
+          "⚠️ **YouTube audio could not be downloaded.**",
+          message,
+          youtubeRequestStatus().cooldownSeconds > 0
+            ? `YouTube requests resume in ${youtubeRequestStatus().cooldownSeconds} seconds. File and direct-link uploads remain available.`
+            : "File and direct-link uploads remain available.",
           "The bot will not ask for your login or cookies.",
           "Choose one option below: upload the original MP3/WAV, paste a direct public audio file link, or read the YouTube tips."
         ].join("\n"),
@@ -1291,7 +1280,8 @@ async function handleMenuButton(interaction) {
         "",
         "**Fastest fix:** download/export the audio yourself, then press **Upload MP3/WAV Now**.",
         "**Direct link fix:** upload your licensed audio file to Dropbox, Google Drive, Discord CDN, Cloudflare R2, or Amazon S3, then press **Paste Direct Link**.",
-        "**Best 24/7 fix:** run the bot on a trusted home/server IP instead of a datacenter IP.",
+        "**Automatic protection:** after a rate limit or bot challenge, YouTube requests pause for 15 minutes. Restarting is not an unblock solution. Access-denied errors pause requests for 1 minute.",
+        "**Different errors:** age verification, login requirements, unavailable videos and timeouts are reported separately. No hosting provider guarantees YouTube access.",
         "",
         "The bot does not use cookies, private videos, DRM bypasses, or account login workarounds."
       ].join("\n"),
@@ -1773,6 +1763,9 @@ const httpServer = startServer({
     uploadHistoryStorage: "ready",
     corruptUploadHistoryFiles: uploadHistoryStore.corruptFiles,
     youtubeReady,
+    youtubeToolInstalled: youtubeReady,
+    youtubeAccessVerified: false,
+    youtubeRequests: youtubeRequestStatus(),
     youtubeToolVersion,
     aiMusicConfigured: musicGenerator.configured,
     aiMusicModel: musicGenerator.model,
