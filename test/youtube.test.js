@@ -70,3 +70,31 @@ test("YouTube downloader errors are safe and useful", () => {
   assert.match(friendlyYouTubeError({ stderr: "Private video" }), /public/);
   assert.doesNotMatch(friendlyYouTubeError({ stderr: "secret internal detail" }), /secret internal detail/);
 });
+
+test("debug numbers and video IDs cannot masquerade as HTTP status codes", () => {
+  assert.equal(classifyYouTubeError({ stderr: "[debug] build abc429def403\nERROR: Sign in to confirm you're not a bot" }).code, "BOT_BLOCK");
+  assert.equal(classifyYouTubeError({ stderr: "ERROR: [youtube] abc429defgh: extraction failed" }).code, "DOWNLOAD_FAILED");
+  assert.equal(classifyYouTubeError({ stderr: "HTTP status code: 403" }).code, "ACCESS_DENIED");
+  assert.equal(classifyYouTubeError({ stderr: "Video unavailable. Not available in your country" }).code, "REGION_RESTRICTED");
+  assert.equal(classifyYouTubeError({ stderr: "ffmpeg not found. Please install" }).code, "FFMPEG_MISSING");
+});
+
+test("guard prevents overlapping downloads even after the spacing interval", async () => {
+  let clock = 0;
+  let finish;
+  const guard = createYouTubeGuard({ now: () => clock });
+  const first = guard.run(() => new Promise(resolve => { finish = resolve; }));
+  clock = 20_000;
+  await assert.rejects(guard.run(async () => true), { code: "BUSY" });
+  finish("done");
+  assert.equal(await first, "done");
+  assert.equal(await guard.run(async () => "next"), "next");
+});
+
+test("guard releases active slot after a rejected download", async () => {
+  let clock = 0;
+  const guard = createYouTubeGuard({ now: () => clock });
+  await assert.rejects(guard.run(async () => { throw new Error("failure"); }));
+  clock = 10_000;
+  assert.equal(await guard.run(async () => true), true);
+});

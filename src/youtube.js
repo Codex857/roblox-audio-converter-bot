@@ -55,9 +55,10 @@ export function friendlyYouTubeError(error) {
 }
 
 export function classifyYouTubeError(error) {
-  const detail = String(error?.stderr || error?.stdout || error?.message || "");
+  const detail = String(error?.stderr || error?.stdout || error?.message || "")
+    .split(/\r?\n/).filter(line => !/^\s*\[debug\]/i.test(line)).join("\n");
   const result = (code, message) => ({ code, message });
-  if (/429|too many requests|This content isn.t available, try again later/i.test(detail)) {
+  if (/\bHTTP(?:\s+Error|\s+status(?:\s+code)?)?\s*[:=]?\s*429\b|too many requests|This content isn.t available, try again later/i.test(detail)) {
     return result("RATE_LIMIT", "YouTube rate-limited this server. Please wait before trying again.");
   }
   if (/sign in to confirm (?:you.re|you are) not a bot|confirm you.re not a bot/i.test(detail)) {
@@ -66,13 +67,19 @@ export function classifyYouTubeError(error) {
   if (/confirm your age|age.restricted|inappropriate for some users/i.test(detail)) {
     return result("AGE_RESTRICTED", "This YouTube video requires age verification. Upload your original audio file instead.");
   }
+  if (/not available in your country|not made this video available in your country|geo.restricted|region.restricted/i.test(detail)) {
+    return result("REGION_RESTRICTED", "This YouTube video is unavailable in the server's region. Upload your authorized original audio file instead.");
+  }
+  if (/ffmpeg.*(?:not found|not installed|does not exist)|ffprobe.*(?:not found|not installed)/i.test(detail)) {
+    return result("FFMPEG_MISSING", "FFmpeg is unavailable on the server. Please contact the bot administrator.");
+  }
   if (/private video|members.only|video unavailable/i.test(detail)) {
     return result("UNAVAILABLE", "The YouTube video is not publicly available.");
   }
   if (/sign in|login required|cookies/i.test(detail)) {
     return result("LOGIN_REQUIRED", "This YouTube request requires login. The bot does not accept account cookies.");
   }
-  if (/403|forbidden/i.test(detail)) {
+  if (/\bHTTP(?:\s+Error|\s+status(?:\s+code)?)?\s*[:=]?\s*403\b|forbidden/i.test(detail)) {
     return result("ACCESS_DENIED", "YouTube denied access (403). This alone does not confirm an IP block.");
   }
   if (error?.code === "ENOENT") {
@@ -102,13 +109,16 @@ export class YouTubeError extends Error {
 export function createYouTubeGuard({ now = Date.now } = {}) {
   let until = 0;
   let lastErrorCode = null;
+  let active = false;
   return {
     status: () => ({ cooldownSeconds: Math.max(0, Math.ceil((until - now()) / 1000)), lastErrorCode }),
     async run(task) {
+      if (active) throw new YouTubeError("BUSY", "A YouTube download is already running. Please try again after it finishes.");
       if (now() < until) {
         throw new YouTubeError("COOLDOWN", `YouTube requests are paused. Try again in ${Math.ceil((until - now()) / 1000)} seconds, or upload your original audio file now.`);
       }
       until = now() + 10_000;
+      active = true;
       try {
         const value = await task();
         lastErrorCode = null;
@@ -118,6 +128,8 @@ export function createYouTubeGuard({ now = Date.now } = {}) {
         const delay = { RATE_LIMIT: 15 * 60_000, BOT_BLOCK: 15 * 60_000, ACCESS_DENIED: 60_000 }[lastErrorCode] || 10_000;
         until = Math.max(until, now() + delay);
         throw error;
+      } finally {
+        active = false;
       }
     }
   };
