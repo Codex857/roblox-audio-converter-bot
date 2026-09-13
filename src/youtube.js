@@ -45,6 +45,8 @@ function baseArgs() {
     "--no-playlist",
     "--no-warnings",
     "--no-progress",
+    "--retries", "0",
+    "--socket-timeout", "20",
     "--extractor-retries", "0",
     "--js-runtimes", "node"
   ];
@@ -122,6 +124,7 @@ export function createYouTubeGuard({ now = Date.now } = {}) {
       try {
         const value = await task();
         lastErrorCode = null;
+        until = now() + 10_000;
         return value;
       } catch (error) {
         lastErrorCode = error instanceof YouTubeError ? error.code : "DOWNLOAD_FAILED";
@@ -197,8 +200,6 @@ async function downloadYouTubeMp3Unchecked({ ytDlpPath, ffmpegPath, url, outputP
     "--audio-quality", "0",
     "--ffmpeg-location", ffmpegPath,
     "--max-filesize", "25M",
-    "--socket-timeout", "20",
-    "--retries", "0",
     "--fragment-retries", "0",
     "--output", outputTemplate,
     "--",

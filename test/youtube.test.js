@@ -88,6 +88,9 @@ test("guard prevents overlapping downloads even after the spacing interval", asy
   await assert.rejects(guard.run(async () => true), { code: "BUSY" });
   finish("done");
   assert.equal(await first, "done");
+  assert.equal(guard.status().cooldownSeconds, 10);
+  await assert.rejects(guard.run(async () => "too soon"), { code: "COOLDOWN" });
+  clock = 30_000;
   assert.equal(await guard.run(async () => "next"), "next");
 });
 

@@ -666,7 +666,7 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
           "⚠️ **YouTube audio could not be downloaded.**",
           message,
           youtubeRequestStatus().cooldownSeconds > 0
-            ? `YouTube requests resume in ${youtubeRequestStatus().cooldownSeconds} seconds. File and direct-link uploads remain available.`
+            ? `You can retry in ${youtubeRequestStatus().cooldownSeconds} seconds; this does not mean YouTube has lifted the restriction. File and direct-link uploads remain available.`
             : "File and direct-link uploads remain available.",
           "The bot will not ask for your login or cookies.",
           "Server admins can use /library add to save an authorized original file for this link. Future requests in this server will use the saved file.",
