@@ -238,7 +238,19 @@ export const robloxServerCommand = new SlashCommandBuilder()
     subcommand.setName("clear").setDescription("Clear this server's Roblox creator setup")
   );
 
+export const libraryCommand = new SlashCommandBuilder()
+  .setName("library").setDescription("Manage this server's authorized original audio library")
+  .addSubcommand(s => s.setName("add").setDescription("Save an original audio file for a YouTube reference link")
+    .addStringOption(o => o.setName("link").setDescription("YouTube reference link").setRequired(true))
+    .addAttachmentOption(o => o.setName("file").setDescription("Original audio you may share with this server").setRequired(true))
+    .addBooleanOption(o => o.setName("rights_confirm").setDescription("I may store and share this audio for this server's uploads").setRequired(true)))
+  .addSubcommand(s => s.setName("list").setDescription("List saved links"))
+  .addSubcommand(s => s.setName("delete").setDescription("Permanently delete a saved audio file")
+    .addStringOption(o => o.setName("link").setDescription("Saved YouTube reference link").setRequired(true))
+    .addBooleanOption(o => o.setName("confirm").setDescription("Permanently remove the stored file").setRequired(true)));
+
 export const allCommands = [
+  libraryCommand,
   menuCommand,
   generateMusicCommand,
   aiStatusCommand,

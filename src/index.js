@@ -43,6 +43,7 @@ import { checkYouTubeTool, downloadYouTubeMp3, normalizeYouTubeUrl, YouTubeError
 import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js";
 import { createMusicGenerator } from "./music-generation.js";
 import { DailyUsageLimiter } from "./ai-usage.js";
+import { LinkLibrary } from "./link-library.js";
 import { generateRobloxLua } from "./lua-generator.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
@@ -64,6 +65,7 @@ const token = process.env.DISCORD_TOKEN;
 const BOT_VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
+const linkLibrary = new LinkLibrary(join(dataDirectory, "link-library"));
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/oauth/roblox/callback` : "");
 if (!token) throw new Error("DISCORD_TOKEN is not set in .env.");
@@ -243,6 +245,7 @@ function buildMenuEmbed(serverConfig = null) {
     .setTitle("🎛️ Eclipse Audio Studio")
     .setDescription("**Upload in 3 steps:** choose a source → select speed/style → confirm rights. The bot converts, uploads and returns the Roblox Asset ID.")
     .addFields(
+      { name: "Link Library", value: "Admins: `/library add` saves an authorized original file against a YouTube link (20 tracks/server). `/library list` shows links; `/library delete` permanently removes a file. Then use the same link in `/yt` or YouTube Link: saved audio is used without downloading from YouTube. Files are shared only within this server and persist until deleted." },
       { name: "📤 Upload", value: "**Start Upload** — MP3/WAV/OGG and more\n**Paste Audio Link** — Dropbox, Drive, CDN, R2 or S3\n**YouTube Link** — public licensed videos", inline: true },
       { name: "🧠 Smart tools", value: "**Smart Audio Check** — free health score + waveform\n**AI Music** — optional paid provider\n`/lua-sound` — Studio scripts", inline: true },
       { name: "🎯 Destination", value: `${destination}\nAccess: ${access}` }
@@ -256,6 +259,7 @@ function buildHelpEmbed() {
     .setTitle("❓ Eclipse Audio — Complete Help")
     .setDescription("Use `/menu` for the guided workflow. You do not need to memorize upload commands.")
     .addFields(
+      { name: "Link Library (admin)", value: "Use `/library add` with a YouTube reference link, your original audio file and rights confirmation. Then use that link in `/yt` or YouTube Link. Saved audio is used before any YouTube request. `/library list` lists saved links; `/library delete` permanently removes a file. Up to 20 files, 25 MB each, per server; stored until deleted." },
       { name: "1 · Server setup (admin)", value: "Create a Roblox Open Cloud key with Assets `asset:read` + `asset:write`. Open `/menu` and enter the API key, Group/User type and Creator ID. Group keys must be granted access to that group." },
       { name: "2 · Upload audio", value: "Choose **Start Upload**, **Paste Audio Link**, or **YouTube Link**. Select speed, audio style and optional trim such as `30-90`, confirm rights, then submit." },
       { name: "3 · Free smart features", value: "**Smart Audio Check** measures clipping, volume, duration, size and format, then creates a waveform. `/lua-sound` builds safe Single, Playlist, Random or Crossfade Luau files." },
@@ -612,12 +616,14 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
   let displayName = "YouTube Audio";
 
   try {
-    await editStatus(interaction, "🔗 Reading the link and downloading YouTube audio as MP3...");
+    await editStatus(interaction, "🔗 Checking this server's Link Library...");
     workDir = await mkdtemp(join(tmpdir(), "roblox-youtube-"));
     const mp3Path = join(workDir, "youtube-source.mp3");
     const outputName = "youtube-roblox.ogg";
     const outputPath = join(workDir, outputName);
-    const source = await downloadYouTubeMp3({
+    const saved = interaction.guildId && await linkLibrary.copy(interaction.guildId, youtube.url, mp3Path);
+    if (!saved) await editStatus(interaction, "🔗 No saved original found. Trying YouTube audio download...");
+    const source = saved ? { path: mp3Path, title: `Library ${new URL(youtube.url).searchParams.get("v")}` } : await downloadYouTubeMp3({
       ytDlpPath,
       ffmpegPath,
       url: youtube.url,
@@ -652,6 +658,7 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
             ? `YouTube requests resume in ${youtubeRequestStatus().cooldownSeconds} seconds. File and direct-link uploads remain available.`
             : "File and direct-link uploads remain available.",
           "The bot will not ask for your login or cookies.",
+          "Server admins can use /library add to save an authorized original file for this link. Future requests in this server will use the saved file.",
           "Choose one option below: upload the original MP3/WAV, paste a direct public audio file link, or read the YouTube tips."
         ].join("\n"),
         files: [],
@@ -928,13 +935,6 @@ async function showQuickUploadConfirmation(interaction) {
 async function showYouTubeConfirmation(interaction) {
   const target = resolveUploadTarget(interaction);
   if (!target) return replyUploadTargetRequired(interaction);
-  if (!youtubeReady) {
-    await interaction.reply({
-      content: "❌ The YouTube downloader is not ready yet. Try again after the bot finishes starting.",
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
   if (!interaction.options.getBoolean("rights_confirm", true)) {
     await interaction.reply({
       content: "❌ Upload cancelled. You must own this audio or have a license to use it.",
@@ -1296,13 +1296,6 @@ async function handleMenuButton(interaction) {
     await replyUploadTargetRequired(interaction);
     return true;
   }
-  if (interaction.customId === "music-menu:youtube" && !youtubeReady) {
-    await interaction.reply({
-      content: "❌ The YouTube downloader is not ready yet. Try again after the bot finishes starting.",
-      flags: MessageFlags.Ephemeral
-    });
-    return true;
-  }
 
   const modals = {
     "music-menu:file": fileUploadModal,
@@ -1464,13 +1457,6 @@ async function handleMenuModal(interaction) {
     return true;
   }
 
-  if (!youtubeReady) {
-    await interaction.reply({
-      content: "❌ The YouTube downloader is not ready yet. Try again after the bot finishes starting.",
-      flags: MessageFlags.Ephemeral
-    });
-    return true;
-  }
 
   let url;
   const speed = normalizeAudioSpeed(interaction.fields.getStringSelectValues("audio_speed")[0]);
@@ -1490,6 +1476,36 @@ async function handleMenuModal(interaction) {
 }
 
 async function handleInteraction(interaction) {
+  if (interaction.isChatInputCommand() && interaction.commandName === "library") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+      if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) throw new Error("Manage Server permission is required.");
+      const action = interaction.options.getSubcommand();
+      if (action === "list") {
+        const links = await linkLibrary.list(interaction.guildId);
+        await interaction.editReply({ content: links.length ? links.map(id => `https://youtu.be/${id}`).join("\n") : "No saved links. Use /library add with your original audio file.", allowedMentions: { parse: [] } });
+      } else {
+        const url = normalizeYouTubeUrl(interaction.options.getString("link", true));
+        if (action === "delete") {
+          if (!interaction.options.getBoolean("confirm", true)) throw new Error("Deletion cancelled.");
+          await linkLibrary.remove(interaction.guildId, url);
+          await interaction.editReply("Saved file removed, if present. This cannot be undone; add the original file again to restore it.");
+        } else {
+          if (!interaction.options.getBoolean("rights_confirm", true)) throw new Error("You must have permission to store and share this audio.");
+          const attachment = interaction.options.getAttachment("file", true);
+          validateAttachment(attachment);
+          await linkLibrary.add(interaction.guildId, url, async path => {
+            await downloadAttachment(attachment, path);
+            await inspectAudio(ffprobeStatic.path, path);
+          });
+          await interaction.editReply("Saved for this server. Use this same link in /yt or YouTube Link; the bot will use your original file without downloading from YouTube.");
+        }
+      }
+    } catch (error) {
+      await interaction.editReply({ content: error?.code ? "Library storage operation failed. Please contact the bot administrator." : `Library operation failed: ${errorMessage(error)}`, allowedMentions: { parse: [] } });
+    }
+    return;
+  }
   if (interaction.isButton()) {
     if (await handleRobloxAccountButton(interaction)) return;
     if (await handleQuickUploadButton(interaction)) return;

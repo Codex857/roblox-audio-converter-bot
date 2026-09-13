@@ -226,6 +226,19 @@ Audio limits are based on Roblox Audio Assets and Open Cloud Assets documentatio
 
 ## YouTube behavior
 
+### Link Library
+
+Admins with **Manage Server** can save an authorized original audio file against a YouTube reference link:
+
+1. `/library add link:<YouTube URL> file:<original audio> rights_confirm:True`
+2. Use the same link in `/yt` or the **YouTube Link** menu. The bot checks this server's library first, bypassing the downloader and its cooldown for saved files. The existing speed, preset, rights confirmation and Roblox destination checks still apply.
+3. `/library list` lists saved reference links.
+4. `/library delete link:<URL> confirm:True` permanently removes that stored original. Restore by adding the original again. Copies already made for active upload jobs can still complete.
+
+Only admins manage the library; users already allowed to upload may use saved entries in their own server. Files are stored under `DATA_DIR/link-library`, never shared across servers. Limit: 20 originals per server, each at most 25 MiB and validated using the existing audio duration checks. Run one replica with a persistent volume. Files remain until explicitly deleted; removing the bot does not automatically erase its library. Abrupt termination can leave `.pending-*` staging directories requiring administrator cleanup. Normal failed saves are cleaned immediately. Stored tracks currently use the YouTube video ID as their generated display title.
+
+Register updated commands after deployment using `npm run register:global` and, if guild-specific commands were registered previously, `npm run register:guilds`. No new secret or login is needed. This feature does not download or unblock YouTube; missing entries still use the existing downloader/fallback flow.
+
 The YouTube feature uses `yt-dlp`. Docker installs a pinned verified binary.
 
 Use YouTube only for public videos/audio that you own, are licensed to use, and are allowed to download. The bot does not use user cookies, does not open private content, and does not bypass DRM.
@@ -242,7 +255,7 @@ The bot does not refresh/restart and immediately retry a blocked download. Rate 
 
 The health endpoint retains `youtubeReady` for compatibility, meaning only that the downloader version check succeeded. `youtubeToolInstalled` makes this explicit, `youtubeAccessVerified` remains false (no live access probe), and `youtubeRequests` reports cooldown seconds and the last classified failure. These fields do not prove a particular video is downloadable.
 
-No hosting provider or downloader can guarantee YouTube access. Use your owned/licensed original file or an authorized direct audio URL when YouTube is unavailable. A saved link-to-original-file library is not implemented in this release.
+No hosting provider or downloader can guarantee YouTube access. Use your owned/licensed original file, Link Library, or an authorized direct audio URL when YouTube is unavailable.
 
 Upstream references: [yt-dlp extractor guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors) and [PO Token guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide). Account cookies and third-party token providers are not enabled by this bot.
 

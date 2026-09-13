@@ -35,6 +35,12 @@ export function normalizeAudioPreset(value = "preserve") {
 }
 
 export function normalizeAudioTrim(value) {
+  if (value && typeof value === "object") {
+    if (!Number.isFinite(value.start) || !Number.isFinite(value.end) || value.start < 0) {
+      throw new Error("Trim must use finite nonnegative start-end seconds.");
+    }
+    return normalizeAudioTrim(`${value.start}-${value.end}`);
+  }
   const text = String(value || "").trim();
   if (!text) return null;
   const match = /^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/.exec(text);
