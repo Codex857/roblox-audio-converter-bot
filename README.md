@@ -265,6 +265,42 @@ Upstream references: [yt-dlp extractor guidance](https://github.com/yt-dlp/yt-dl
 
 ## Deploy 24/7 on Railway
 
+### Optional private YouTube MP3 API
+
+Set `YOUTUBE_API_KEY` to a separate random secret of at least 32 characters to enable
+`POST /api/youtube/mp3` on the existing HTTP server. Empty means disabled. Do not
+put this key in frontend JavaScript, Discord messages, URLs, or Git. Use HTTPS in
+production. This is a private backend endpoint, not a public multi-user API.
+
+Send `Authorization: Bearer <key>` and `Content-Type: application/json` with:
+
+```json
+{"url":"https://www.youtube.com/watch?v=VIDEO_ID","rights_confirm":true}
+```
+
+Only submit content you own or are permitted to download. Success returns an
+`audio/mpeg` attachment directly (not a permanent public download URL). Errors
+return `{ "success": false, "data": null, "error": { "code": "...", "message": "..." } }`.
+Status codes include 400 invalid input, 401 authentication, 404 disabled,
+405 method, 413 size, 415 content type, 429 busy/cooldown, and 502 upstream failure.
+
+The API uses the SAME downloader and global YouTube guard as Discord; the bot
+does not make a redundant HTTP call to itself. Existing Discord upload workflows
+remain unchanged. Requests are limited to 4 KB, one active API job, and a 10-second
+interval after each job. Existing 7-minute / 25 MB audio limits still apply.
+Metadata and download stages have bounded timeouts; allow up to six minutes at
+your client/reverse proxy. A client disconnect does not cancel an extraction already
+running: it finishes or times out before cleanup. Files are removed after streaming
+or failure; a process/container crash can leave temporary files until host cleanup.
+No queue, persistent cache, public file storage, account cookies, or third-party
+download API is added. Deployment remains single-replica because guards are in memory.
+
+This endpoint does NOT remove YouTube bot verification or IP restrictions.
+`BOT_BLOCK` is reported as an error, never as a successful download. Tests use
+injected fixture downloads and do not prove live YouTube access.
+
+## Railway setup
+
 This repository includes a `Dockerfile`, so Railway can build it automatically.
 
 1. Push this folder to GitHub.

@@ -15,10 +15,13 @@ function html(title, message) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.45;max-width:620px}</style></head><body><h1>${title}</h1><p>${message}</p><p>You can close this tab and return to Discord.</p></body></html>`;
 }
 
-export function startServer({ port, getStatus, handleRobloxOAuthCallback }) {
+export function startServer({ port, getStatus, handleRobloxOAuthCallback, handleYouTubeApi }) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, "http://localhost");
+      if (url.pathname === "/api/youtube/mp3" && handleYouTubeApi) {
+        return await handleYouTubeApi(req, res);
+      }
       if (req.method === "GET" && url.pathname === "/health") {
         return send(res, 200, JSON.stringify({ ok: true, ...getStatus() }));
       }

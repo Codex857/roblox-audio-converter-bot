@@ -36,6 +36,7 @@ import {
   youtubeUploadModal
 } from "./menu.js";
 import { startServer } from "./server.js";
+import { createYouTubeApi } from "./youtube-api.js";
 import { buildUploadExports } from "./upload-results.js";
 import { CooldownGate, progressBar } from "./queue-policy.js";
 import { UploadHistoryStore } from "./upload-history-store.js";
@@ -1764,6 +1765,7 @@ client.on(Events.InteractionCreate, (interaction) => {
 client.login(token);
 
 const httpServer = startServer({
+  handleYouTubeApi: createYouTubeApi({ apiKey: process.env.YOUTUBE_API_KEY?.trim(), ytDlpPath, ffmpegPath }),
   port: Number(process.env.PORT || 3000),
   handleRobloxOAuthCallback: async (url) => {
     try {
@@ -1792,6 +1794,7 @@ const httpServer = startServer({
     corruptUploadHistoryFiles: uploadHistoryStore.corruptFiles,
     youtubeReady,
     youtubeToolInstalled: youtubeReady,
+    youtubeApiEnabled: Boolean(process.env.YOUTUBE_API_KEY?.trim()),
     youtubeAccessVerified: false,
     youtubeRequests: youtubeRequestStatus(),
     youtubeToolVersion,
