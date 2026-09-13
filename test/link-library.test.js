@@ -3,13 +3,32 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LinkLibrary } from "../src/link-library.js";
+import { LinkLibrary, libraryTitle } from "../src/link-library.js";
 import { normalizeAudioTrim } from "../src/audio.js";
 
 test("normalized trim survives the library upload pipeline", () => {
   assert.deepEqual(normalizeAudioTrim(normalizeAudioTrim("10-20")), { start: 10, end: 20, duration: 10 });
   assert.throws(() => normalizeAudioTrim({ start: -1, end: 3 }));
   assert.throws(() => normalizeAudioTrim({ start: 0, end: Infinity }));
+});
+
+test("library keeps original titles across restart and supports legacy metadata", async () => {
+  const root = await mkdtemp(join(tmpdir(), "library-test-"));
+  try {
+    const url = "https://youtu.be/dQw4w9WgXcQ";
+    await new LinkLibrary(root).add("123", url, path => writeFile(path, "audio"), { title: "Lagu Saya.wav" });
+    const store = new LinkLibrary(root);
+    const destination = join(root, "copy");
+    assert.equal((await store.copy("123", url, destination, { withTitle: true })).title, "Lagu Saya");
+    const metadata = join(root, "123", "dQw4w9WgXcQ", "metadata.json");
+    await writeFile(metadata, "broken JSON");
+    assert.equal((await store.copy("123", url, destination, { withTitle: true })).title, "Library dQw4w9WgXcQ");
+    await rm(metadata);
+    assert.equal((await store.copy("123", url, destination, { withTitle: true })).title, "Library dQw4w9WgXcQ");
+    assert.equal(await store.copy("456", url, destination, { withTitle: true }), false);
+    assert.equal(libraryTitle("../../Lagu\u0000.mp3", "fallback"), "Lagu");
+    assert.equal(libraryTitle(null, "fallback"), "fallback");
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("library enforces capacity and excludes concurrent writes", async () => {

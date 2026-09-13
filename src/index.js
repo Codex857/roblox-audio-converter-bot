@@ -621,9 +621,9 @@ async function processYouTubeUploadJob({ interaction, youtube, uploader }) {
     const mp3Path = join(workDir, "youtube-source.mp3");
     const outputName = "youtube-roblox.ogg";
     const outputPath = join(workDir, outputName);
-    const saved = interaction.guildId && await linkLibrary.copy(interaction.guildId, youtube.url, mp3Path);
+    const saved = interaction.guildId && await linkLibrary.copy(interaction.guildId, youtube.url, mp3Path, { withTitle: true });
     if (!saved) await editStatus(interaction, "🔗 No saved original found. Trying YouTube audio download...");
-    const source = saved ? { path: mp3Path, title: `Library ${new URL(youtube.url).searchParams.get("v")}` } : await downloadYouTubeMp3({
+    const source = saved || await downloadYouTubeMp3({
       ytDlpPath,
       ffmpegPath,
       url: youtube.url,
@@ -1497,7 +1497,7 @@ async function handleInteraction(interaction) {
           await linkLibrary.add(interaction.guildId, url, async path => {
             await downloadAttachment(attachment, path);
             await inspectAudio(ffprobeStatic.path, path);
-          });
+          }, { title: attachment.name });
           await interaction.editReply("Saved for this server. Use this same link in /yt or YouTube Link; the bot will use your original file without downloading from YouTube.");
         }
       }
