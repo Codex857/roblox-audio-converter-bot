@@ -228,6 +228,8 @@ Audio limits are based on Roblox Audio Assets and Open Cloud Assets documentatio
 
 ### Link Library
 
+**Button workflow:** `/menu` → **Link Library** → **Add Original Audio**, **Saved Links**, or **Delete Saved Audio**. Add and delete use private forms with unchecked confirmation boxes. Manage Server permission is checked both when opening the panel and when submitting a form. Existing slash commands remain supported. Use a fresh `/menu` after deployment; an existing permanent `/panel` message needs to be reposted to show the new Library button.
+
 Since v4.2.1, newly saved originals retain their sanitized filename (without the audio extension) as the upload title. Existing entries without title metadata keep the `Library <video ID>` fallback; missing or malformed metadata does not prevent use of the stored audio. No existing files are rewritten automatically.
 
 Admins with **Manage Server** can save an authorized original audio file against a YouTube reference link:

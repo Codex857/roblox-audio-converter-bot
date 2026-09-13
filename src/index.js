@@ -44,6 +44,7 @@ import { downloadDirectAudio, normalizeDirectAudioUrl } from "./direct-audio.js"
 import { createMusicGenerator } from "./music-generation.js";
 import { DailyUsageLimiter } from "./ai-usage.js";
 import { LinkLibrary } from "./link-library.js";
+import { createLibraryMenuHandler } from "./library-menu.js";
 import { generateRobloxLua } from "./lua-generator.js";
 import {
   DISCORD_SAFE_MAX_BYTES,
@@ -66,6 +67,16 @@ const BOT_VERSION = JSON.parse(readFileSync(new URL("../package.json", import.me
 const ytDlpPath = process.env.YT_DLP_PATH?.trim() || "yt-dlp";
 const dataDirectory = process.env.DATA_DIR?.trim() || join(process.cwd(), "data");
 const linkLibrary = new LinkLibrary(join(dataDirectory, "link-library"));
+const handleLibraryMenu = createLibraryMenuHandler({
+  store: linkLibrary,
+  saveAudio: async (guildId, url, attachment) => {
+    validateAttachment(attachment);
+    await linkLibrary.add(guildId, url, async path => {
+      await downloadAttachment(attachment, path);
+      await inspectAudio(ffprobeStatic.path, path);
+    }, { title: attachment.name });
+  }
+});
 const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/oauth/roblox/callback` : "");
 if (!token) throw new Error("DISCORD_TOKEN is not set in .env.");
@@ -257,7 +268,7 @@ function buildHelpEmbed() {
   return new EmbedBuilder()
     .setColor(0xa78bfa)
     .setTitle("❓ Eclipse Audio — Complete Help")
-    .setDescription("Use `/menu` for the guided workflow. You do not need to memorize upload commands.")
+    .setDescription("Use `/menu` for the guided workflow. Admins: press **Link Library**, then **Add Original Audio**, **Saved Links**, or **Delete Saved Audio**. Add opens a file/link form; delete requires explicit confirmation. You do not need to memorize library commands.")
     .addFields(
       { name: "Link Library (admin)", value: "Use `/library add` with a YouTube reference link, your original audio file and rights confirmation. Then use that link in `/yt` or YouTube Link. Saved audio is used before any YouTube request. `/library list` lists saved links; `/library delete` permanently removes a file. Up to 20 files, 25 MB each, per server; stored until deleted." },
       { name: "1 · Server setup (admin)", value: "Create a Roblox Open Cloud key with Assets `asset:read` + `asset:write`. Open `/menu` and enter the API key, Group/User type and Creator ID. Group keys must be granted access to that group." },
@@ -1476,6 +1487,7 @@ async function handleMenuModal(interaction) {
 }
 
 async function handleInteraction(interaction) {
+  if (await handleLibraryMenu(interaction)) return;
   if (interaction.isChatInputCommand() && interaction.commandName === "library") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     try {

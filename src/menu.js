@@ -41,7 +41,8 @@ export function mainMenuComponents() {
         .setCustomId("music-menu:ai")
         .setLabel("AI Music (Optional)")
         .setEmoji("✨")
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("library:home").setLabel("Link Library").setEmoji("📚").setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()

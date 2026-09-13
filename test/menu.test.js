@@ -21,7 +21,8 @@ test("main menu offers file, direct link, YouTube, help and account buttons", ()
     ],
     [
       "music-menu:check",
-      "music-menu:ai"
+      "music-menu:ai",
+      "library:home"
     ],
     [
       "music-menu:account",
