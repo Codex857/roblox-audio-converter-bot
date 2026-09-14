@@ -56,7 +56,7 @@ test("MP3 API cleans failures and reports upstream block without secrets", async
     throw new YouTubeError("BOT_BLOCK", "YouTube blocked the request.");
   });
   const response = await f.request();
-  assert.equal(response.status, 502);
+  assert.equal(response.status, 422);
   assert.equal((await response.json()).error.code, "BOT_BLOCK");
   await cleaned(f.root);
 });

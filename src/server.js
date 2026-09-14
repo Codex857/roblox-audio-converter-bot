@@ -19,7 +19,7 @@ export function startServer({ port, getStatus, handleRobloxOAuthCallback, handle
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, "http://localhost");
-      if (url.pathname === "/api/youtube/mp3" && handleYouTubeApi) {
+      if (["/api/youtube/mp3", "/convert", "/api/download"].includes(url.pathname) && handleYouTubeApi) {
         return await handleYouTubeApi(req, res);
       }
       if (req.method === "GET" && url.pathname === "/health") {

@@ -37,6 +37,7 @@ import {
 } from "./menu.js";
 import { startServer } from "./server.js";
 import { createYouTubeApi } from "./youtube-api.js";
+import { checkMediaRuntime } from "./media-runtime.js";
 import { buildUploadExports } from "./upload-results.js";
 import { CooldownGate, progressBar } from "./queue-policy.js";
 import { UploadHistoryStore } from "./upload-history-store.js";
@@ -82,6 +83,8 @@ const robloxOAuthRedirectUri = process.env.ROBLOX_OAUTH_REDIRECT_URI?.trim()
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/oauth/roblox/callback` : "");
 if (!token) throw new Error("DISCORD_TOKEN is not set in .env.");
 if (!ffmpegPath || !ffprobeStatic.path) throw new Error("FFmpeg or FFprobe is not available.");
+const mediaRuntime = await checkMediaRuntime(ffmpegPath, ffprobeStatic.path);
+const privateApiKey = process.env.API_KEY?.trim() || process.env.YOUTUBE_API_KEY?.trim();
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const defaultRoblox = createRobloxUploader({
@@ -1765,7 +1768,7 @@ client.on(Events.InteractionCreate, (interaction) => {
 client.login(token);
 
 const httpServer = startServer({
-  handleYouTubeApi: createYouTubeApi({ apiKey: process.env.YOUTUBE_API_KEY?.trim(), ytDlpPath, ffmpegPath }),
+  handleYouTubeApi: createYouTubeApi({ apiKey: privateApiKey, ytDlpPath, ffmpegPath }),
   port: Number(process.env.PORT || 3000),
   handleRobloxOAuthCallback: async (url) => {
     try {
@@ -1794,7 +1797,9 @@ const httpServer = startServer({
     corruptUploadHistoryFiles: uploadHistoryStore.corruptFiles,
     youtubeReady,
     youtubeToolInstalled: youtubeReady,
-    youtubeApiEnabled: Boolean(process.env.YOUTUBE_API_KEY?.trim()),
+    youtubeApiEnabled: Boolean(privateApiKey),
+    ...mediaRuntime,
+    yt_dlp: youtubeReady,
     youtubeAccessVerified: false,
     youtubeRequests: youtubeRequestStatus(),
     youtubeToolVersion,

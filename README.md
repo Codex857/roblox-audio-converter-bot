@@ -267,6 +267,31 @@ Upstream references: [yt-dlp extractor guidance](https://github.com/yt-dlp/yt-dl
 
 ### Optional private YouTube MP3 API
 
+Version 4.4.1 adds `/convert` and `/api/download` aliases without removing the old
+endpoint. `API_KEY` is the preferred secret; `YOUTUBE_API_KEY` remains supported.
+Both `X-API-Key` and `Authorization: Bearer` are accepted. Keep the existing
+`rights_confirm: true` field as well as `url`. Do not put the key in the URL.
+
+To run only the API locally (no Discord login), install Node 22.5+, run `npm ci`,
+install the pinned yt-dlp version from the Dockerfile, set `YT_DLP_PATH` and `API_KEY`
+in an ignored `.env`, then run `npm run start:api`. Generate a new secret privately
+using `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+Never paste its output in an issue or commit it. Standalone startup refuses a missing
+key or unavailable FFmpeg, ffprobe, or downloader. The combined Discord process
+continues to disable the API when no key is configured so existing bot features remain usable.
+
+Railway: use the existing Dockerfile and volume, set `API_KEY` in service Variables,
+keep the existing start command for Discord plus API, or use `npm run start:api` for
+a dedicated API service. Bind uses `0.0.0.0:$PORT`. Verify health fields `ffmpeg`,
+`ffprobe`, and `yt_dlp`, then POST a permitted video with authentication.
+
+Download and conversion are separate stages. MP3 output uses 192 kbps, is checked
+with ffprobe, and is returned directly. Logs contain job ID and stage elapsed times,
+not source URLs, credentials or raw stderr. `X-Job-Id` correlates a response with logs.
+An extractor adapter with `extract(options)` can replace the source acquisition layer
+while retaining conversion. No alternative provider or access-control bypass is installed.
+Timeouts return 504, conversion failures 500, blocked/restricted sources 422.
+
 Set `YOUTUBE_API_KEY` to a separate random secret of at least 32 characters to enable
 `POST /api/youtube/mp3` on the existing HTTP server. Empty means disabled. Do not
 put this key in frontend JavaScript, Discord messages, URLs, or Git. Use HTTPS in

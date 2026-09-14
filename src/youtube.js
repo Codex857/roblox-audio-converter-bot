@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
-import { stat } from "node:fs/promises";
+import { stat, readdir } from "node:fs/promises";
+import ffprobeStatic from "ffprobe-static";
+import { MediaError, convertToMp3 } from "./media-runtime.js";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
@@ -99,9 +101,9 @@ export function classifyYouTubeError(error) {
   return result("DOWNLOAD_FAILED", "Failed to fetch audio from YouTube. Make sure the video is public and the link is still active.");
 }
 
-export class YouTubeError extends Error {
+export class YouTubeError extends MediaError {
   constructor(code, message) {
-    super(message);
+    super(code, message);
     this.name = "YouTubeError";
     this.code = code;
   }
@@ -166,8 +168,9 @@ export async function downloadYouTubeMp3(options) {
   return youtubeGuard.run(() => downloadYouTubeMp3Unchecked(options));
 }
 
-async function downloadYouTubeMp3Unchecked({ ytDlpPath, ffmpegPath, url, outputPath }) {
+export async function extractYouTubeAudio({ ytDlpPath, url, outputPath, onStage = () => {} }) {
   const normalizedUrl = normalizeYouTubeUrl(url);
+  onStage("EXTRACTION_STARTED");
   const { stdout } = await runYtDlp(ytDlpPath, [
     ...baseArgs(),
     "--dump-single-json",
@@ -180,7 +183,7 @@ async function downloadYouTubeMp3Unchecked({ ytDlpPath, ffmpegPath, url, outputP
   try {
     metadata = JSON.parse(stdout);
   } catch {
-    throw new Error("YouTube returned unreadable metadata.");
+    throw new YouTubeError("EXTRACTION_FAILED", "YouTube returned unreadable metadata.");
   }
   const duration = Number(metadata.duration);
   const isLive = metadata.is_live || ["is_live", "is_upcoming"].includes(metadata.live_status);
@@ -189,16 +192,15 @@ async function downloadYouTubeMp3Unchecked({ ytDlpPath, ffmpegPath, url, outputP
   }
   if (isLive) throw new Error("Live streams are not supported.");
   if (!Number.isFinite(duration) || duration <= 0) throw new Error("The video duration could not be read.");
-  if (duration > MAX_DURATION_SECONDS) throw new Error("YouTube audio exceeds Roblox's 7-minute limit.");
+  if (duration > MAX_DURATION_SECONDS) throw new YouTubeError("VIDEO_TOO_LONG", "YouTube audio exceeds Roblox's 7-minute limit.");
+  onStage("METADATA_RECEIVED");
 
   const outputTemplate = join(dirname(outputPath), "youtube-source.%(ext)s");
+  onStage("DOWNLOAD_STARTED");
   await runYtDlp(ytDlpPath, [
     ...baseArgs(),
     "--format", "bestaudio/best",
-    "--extract-audio",
-    "--audio-format", "mp3",
-    "--audio-quality", "0",
-    "--ffmpeg-location", ffmpegPath,
+    "--no-simulate",
     "--max-filesize", "25M",
     "--fragment-retries", "0",
     "--output", outputTemplate,
@@ -206,20 +208,38 @@ async function downloadYouTubeMp3Unchecked({ ytDlpPath, ffmpegPath, url, outputP
     normalizedUrl
   ], { timeout: 5 * 60_000 });
 
-  const sourcePath = join(dirname(outputPath), "youtube-source.mp3");
+  const files = (await readdir(dirname(outputPath))).filter(name => /^youtube-source\.[a-z0-9]+$/i.test(name) && !name.endsWith(".part"));
+  if (files.length !== 1) throw new YouTubeError("EXTRACTION_FAILED", "Downloader did not produce one audio source.");
+  const sourcePath = join(dirname(outputPath), files[0]);
   let fileInfo;
   try {
     fileInfo = await stat(sourcePath);
   } catch {
-    throw new Error("YouTube did not produce a usable MP3 file.");
+    throw new YouTubeError("EXTRACTION_FAILED", "YouTube did not produce a readable audio source.");
   }
   if (fileInfo.size <= 0 || fileInfo.size > MAX_MP3_BYTES) {
-    throw new Error("The YouTube MP3 is empty or exceeds the bot's 25 MB limit.");
+    throw new YouTubeError("FILE_TOO_LARGE", "The downloaded audio is empty or exceeds 25 MB.");
   }
+  onStage("EXTRACTION_COMPLETED");
 
   return {
     path: sourcePath,
     title: String(metadata.title || "YouTube Audio").trim().slice(0, 100),
-    duration
+    duration,
+    videoId: new URL(normalizedUrl).searchParams.get("v"),
+    thumbnail: typeof metadata.thumbnail === "string" ? metadata.thumbnail : null,
+    uploader: typeof metadata.uploader === "string" ? metadata.uploader : null,
+    extractor: "youtube"
   };
+}
+
+async function downloadYouTubeMp3Unchecked(options) {
+  const onStage = options.onStage || (() => {});
+  const extractor = options.extractor || { extract: extractYouTubeAudio };
+  const source = await extractor.extract(options);
+  onStage("FFMPEG_STARTED");
+  const verified = await convertToMp3({ ffmpegPath: options.ffmpegPath,
+    ffprobePath: options.ffprobePath || ffprobeStatic.path, inputPath: source.path, outputPath: options.outputPath });
+  onStage("FFMPEG_COMPLETED");
+  return { ...source, ...verified, path: options.outputPath };
 }
