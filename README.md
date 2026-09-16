@@ -263,9 +263,104 @@ No hosting provider or downloader can guarantee YouTube access. Use your owned/l
 
 Upstream references: [yt-dlp extractor guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors) and [PO Token guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide). Account cookies and third-party token providers are not enabled by this bot.
 
-## Deploy 24/7 on Railway
+## Deploy 24/7
 
-### Optional private YouTube MP3 API
+Best practical options:
+
+- **VPS with Docker Compose** - best control and most stable for a Discord bot with FFmpeg/yt-dlp. Recommended if Railway keeps getting blocked.
+- **Fly.io** - easy Docker deployment with a Singapore region and one always-on machine.
+- **Render worker** - simple GitHub-based deployment, but still a cloud/datacenter IP like Railway.
+- **Railway** - already supported and working for bot uptime, but YouTube may still block its server IP.
+
+Important: changing host can reduce or change YouTube blocking behavior, but no cloud host can guarantee YouTube access. The bot remains designed to use safe fallbacks: upload MP3/WAV, direct public audio link, and Link Library.
+
+### VPS Docker Compose setup
+
+Use this when you want the bot to run without your PC and without depending on Railway.
+
+1. Rent a small Ubuntu VPS with at least 1 GB RAM.
+2. Install Docker and Docker Compose.
+3. Clone this repository.
+4. Copy `.env.example` to `.env` and fill your real secrets.
+5. Start the bot:
+
+```bash
+docker compose up -d --build
+```
+
+Check status:
+
+```bash
+docker compose ps
+docker compose logs -f eclipse-audio-bot
+curl http://127.0.0.1:3000/health
+```
+
+Update after pushing new GitHub code:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+This uses the included `docker-compose.yml`, keeps `/app/data` in a Docker volume, and restarts automatically after server reboot.
+
+### VPS PM2 setup
+
+Use this only if you do not want Docker.
+
+```bash
+npm ci --omit=dev
+npm install -g pm2
+pm2 start deploy/pm2.ecosystem.config.cjs
+pm2 save
+pm2 startup
+```
+
+The VPS must also have Node.js 22.5+, FFmpeg, ffprobe, and `yt-dlp` installed.
+
+### Fly.io setup
+
+The repository includes `fly.toml`.
+
+```bash
+fly launch --no-deploy
+fly volumes create eclipse_audio_data --size 1 --region sin
+fly secrets set DISCORD_TOKEN=... DISCORD_CLIENT_ID=... SERVER_CONFIG_SECRET=... API_KEY=...
+fly deploy
+```
+
+Keep one machine running. Do not scale to multiple replicas because Discord commands, upload queues, and YouTube guards are process-local.
+
+### Render setup
+
+The repository includes `render.yaml` for a Docker worker.
+
+1. Create a new Render Blueprint from this GitHub repository.
+2. Add secret environment variables in Render.
+3. Deploy one worker instance.
+
+Render workers do not expose a public web service by default. If you need the `/health` or `/convert` HTTP endpoints publicly on Render, create a Render Web Service from the same Dockerfile instead of the worker blueprint.
+
+## Railway setup
+
+This repository includes a `Dockerfile`, so Railway can build it automatically.
+
+1. Push this folder to GitHub.
+2. Create a Railway project from the GitHub repository.
+3. Add Railway variables `DISCORD_TOKEN` and `DISCORD_CLIENT_ID`.
+4. Add `DATA_DIR=/app/data`.
+5. Add a Railway volume mounted at `/app/data` so per-server API key setup survives restarts.
+6. In Service Settings, set Restart Policy to **Always**.
+7. Deploy.
+8. Confirm logs show `Bot is online as ...`.
+9. Run `npm run register:global` locally whenever slash command descriptions or options change.
+
+Railway Hobby is a practical option for a small always-on bot. Actual cost depends on RAM, CPU used by FFmpeg, storage, and network egress. Set usage alerts/limits and review cost after the first week.
+
+Temporary working audio files are stored in the system temp directory and deleted after each job. Persistent storage is only needed for encrypted server configuration and optional OAuth profiles.
+
+## Optional private YouTube MP3 API
 
 Version 4.4.1 adds `/convert` and `/api/download` aliases without removing the old
 endpoint. `API_KEY` is the preferred secret; `YOUTUBE_API_KEY` remains supported.
@@ -323,23 +418,5 @@ download API is added. Deployment remains single-replica because guards are in m
 This endpoint does NOT remove YouTube bot verification or IP restrictions.
 `BOT_BLOCK` is reported as an error, never as a successful download. Tests use
 injected fixture downloads and do not prove live YouTube access.
-
-## Railway setup
-
-This repository includes a `Dockerfile`, so Railway can build it automatically.
-
-1. Push this folder to GitHub.
-2. Create a Railway project from the GitHub repository.
-3. Add Railway variables `DISCORD_TOKEN` and `DISCORD_CLIENT_ID`.
-4. Add `DATA_DIR=/app/data`.
-5. Add a Railway volume mounted at `/app/data` so per-server API key setup survives restarts.
-6. In Service Settings, set Restart Policy to **Always**.
-7. Deploy.
-8. Confirm logs show `Bot is online as ...`.
-9. Run `npm run register:global` locally whenever slash command descriptions or options change.
-
-Railway Hobby is a practical option for a small always-on bot. Actual cost depends on RAM, CPU used by FFmpeg, storage, and network egress. Set usage alerts/limits and review cost after the first week.
-
-Temporary working audio files are stored in the system temp directory and deleted after each job. Persistent storage is only needed for encrypted server configuration and optional OAuth profiles.
 
 Direct audio links are checked at every redirect, limited to four redirects and 25 MB, blocked if they resolve to internal/private network addresses, and rejected if they return HTML/JSON/XML instead of audio. Link query strings are not written to bot logs.

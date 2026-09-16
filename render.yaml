@@ -1,0 +1,22 @@
+services:
+  - type: worker
+    name: eclipse-audio-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /app/data
+      - key: PORT
+        value: 3000
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: SERVER_CONFIG_SECRET
+        sync: false
+      - key: API_KEY
+        sync: false
