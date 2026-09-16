@@ -1,10 +1,15 @@
 services:
-  - type: worker
+  - type: web
     name: eclipse-audio-bot
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: starter
     autoDeploy: true
+    healthCheckPath: /health
+    disk:
+      name: eclipse-audio-data
+      mountPath: /app/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production

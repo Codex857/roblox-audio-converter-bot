@@ -269,7 +269,7 @@ Best practical options:
 
 - **VPS with Docker Compose** - best control and most stable for a Discord bot with FFmpeg/yt-dlp. Recommended if Railway keeps getting blocked.
 - **Fly.io** - easy Docker deployment with a Singapore region and one always-on machine.
-- **Render worker** - simple GitHub-based deployment, but still a cloud/datacenter IP like Railway.
+- **Render web service** - simple GitHub-based deployment with `/health`, `/convert`, and OAuth callback support, but still a cloud/datacenter IP like Railway.
 - **Railway** - already supported and working for bot uptime, but YouTube may still block its server IP.
 
 Important: changing host can reduce or change YouTube blocking behavior, but no cloud host can guarantee YouTube access. The bot remains designed to use safe fallbacks: upload MP3/WAV, direct public audio link, and Link Library.
@@ -334,13 +334,13 @@ Keep one machine running. Do not scale to multiple replicas because Discord comm
 
 ### Render setup
 
-The repository includes `render.yaml` for a Docker worker.
+The repository includes `render.yaml` for a Docker web service with a persistent `/app/data` disk.
 
 1. Create a new Render Blueprint from this GitHub repository.
 2. Add secret environment variables in Render.
-3. Deploy one worker instance.
+3. Deploy one web service instance.
 
-Render workers do not expose a public web service by default. If you need the `/health` or `/convert` HTTP endpoints publicly on Render, create a Render Web Service from the same Dockerfile instead of the worker blueprint.
+Do not scale to multiple instances unless the queue, Link Library, and YouTube guards are moved to shared storage.
 
 ## Railway setup
 
