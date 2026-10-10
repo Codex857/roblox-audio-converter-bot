@@ -10,18 +10,28 @@ export class CooldownGate {
     this.cooldownMs = Math.max(0, Number(cooldownMs) || 0);
     this.now = now;
     this.lastAccepted = new Map();
+    this.nextCleanup = 0;
   }
 
   remainingMs(key) {
-    const remaining = this.cooldownMs - (this.now() - (this.lastAccepted.get(String(key)) || 0));
+    const acceptedAt = this.lastAccepted.get(String(key));
+    if (acceptedAt === undefined) return 0;
+    const remaining = this.cooldownMs - (this.now() - acceptedAt);
     return Math.max(0, remaining);
   }
 
   accept(key) {
+    const now = this.now();
+    if (now >= this.nextCleanup) {
+      for (const [id, acceptedAt] of this.lastAccepted) {
+        if (now - acceptedAt >= this.cooldownMs) this.lastAccepted.delete(id);
+      }
+      this.nextCleanup = now + Math.max(1000, this.cooldownMs);
+    }
     const id = String(key);
     const remainingMs = this.remainingMs(id);
     if (remainingMs > 0) return { accepted: false, remainingMs };
-    this.lastAccepted.set(id, this.now());
+    if (this.cooldownMs > 0) this.lastAccepted.set(id, now);
     return { accepted: true, remainingMs: 0 };
   }
 

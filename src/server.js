@@ -12,7 +12,10 @@ function send(res, status, body, contentType = "application/json; charset=utf-8"
 }
 
 function html(title, message) {
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.45;max-width:620px}</style></head><body><h1>${title}</h1><p>${message}</p><p>You can close this tab and return to Discord.</p></body></html>`;
+  const escape = value => String(value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escape(title)}</title><style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.45;max-width:620px}</style></head><body><h1>${escape(title)}</h1><p>${escape(message)}</p><p>You can close this tab and return to Discord.</p></body></html>`;
 }
 
 export function startServer({ port, getStatus, handleRobloxOAuthCallback, handleYouTubeApi }) {
